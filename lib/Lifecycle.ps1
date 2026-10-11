@@ -3,10 +3,10 @@ $script:Pointer='Software\WiFiProxySwitcher'
 $script:TaskPrefix='WiFiProxySwitcher-'
 
 function Get-ProductFiles {
-    return @('Control.ps1','ProxyWatcher.ps1','Diagnose.ps1','SilentLauncher.vbs','config.json','README.md','Install.bat','Start.bat','Stop.bat','Uninstall.bat','RestoreProxy.bat','Status.bat','Diagnose.bat','lib/Core.ps1','lib/Windows.ps1','lib/Native.cs','lib/Monitor.ps1','lib/Lifecycle.ps1','tests/Run-Tests.ps1','tests/Run-Tests.bat','tests/ProbeServer.cs','tests/Round2.Tests.ps1','tests/TaskOwnership.Tests.ps1','docs/ARCHITECTURE.md','docs/WINDOWS_ACCEPTANCE.md','docs/TEST_RESULTS.md','docs/REVIEW_ROUND2.md','docs/TASK_OWNERSHIP_FIX.md','docs/test-results.json')
+    return @('Control.ps1','ProxyWatcher.ps1','Diagnose.ps1','SilentLauncher.vbs','config.json','README.md','tools/Install.bat','tools/Start.bat','tools/Stop.bat','tools/Uninstall.bat','tools/RestoreProxy.bat','tools/Status.bat','tools/Diagnose.bat','lib/Core.ps1','lib/Windows.ps1','lib/Native.cs','lib/Monitor.ps1','lib/Lifecycle.ps1','lib/Desktop.ps1','tests/Run-Tests.ps1','tests/Run-Tests.bat','tests/ProbeServer.cs','tests/Round2.Tests.ps1','tests/TaskOwnership.Tests.ps1','tests/Productization.Tests.ps1','docs/ARCHITECTURE.md','docs/WINDOWS_ACCEPTANCE.md','docs/TEST_RESULTS.md','docs/REVIEW_ROUND2.md','docs/TASK_OWNERSHIP_FIX.md','docs/test-results.json','docs/ADVANCED_USAGE.md','docs/PRODUCTIZATION.md','docs/PRODUCT_WINDOWS_ACCEPTANCE.md','docs/PRODUCT_TEST_RESULTS.md','docs/REPOSITORY_AUDIT_V3.md','docs/product-engine-tests.json','docs/product-launcher-tests.json')
 }
 function Assert-InstallManifest($Manifest) {
-    $allowed=Get-ProductFiles; $seen=@{}
+    $allowed=@(Get-ProductFiles)+@('Install.bat','Start.bat','Stop.bat','Uninstall.bat','RestoreProxy.bat','Status.bat','Diagnose.bat'); $seen=@{}
     foreach ($entry in $Manifest.Files) {
         $name=$entry.Path.Replace('\','/')
         if ($name -cnotin $allowed -or $seen.ContainsKey($name) -or $entry.Hash -notmatch '^[0-9a-fA-F]{64}$') { throw '安装清单存在未知/重复路径或无效哈希，拒绝操作' }
@@ -110,6 +110,12 @@ function New-InstallManifest([string]$Root,[string]$FilesRoot,$Previous,[switch]
         }
         $manifest.Files += [pscustomobject]@{Path=$name;Hash=$hash}
     }
+    # Keep ownership of old root-level BAT files so upgrades can still uninstall them safely.
+    if ($null -ne $Previous) {
+        foreach ($entry in $Previous.Files) {
+            if ($entry.Path -in @('Install.bat','Start.bat','Stop.bat','Uninstall.bat','RestoreProxy.bat','Status.bat','Diagnose.bat') -and (Test-Path -LiteralPath (Join-Path $Root $entry.Path))) { $manifest.Files += $entry }
+        }
+    }
     return $manifest
 }
 function Install-ProductFiles([string]$Source,[string]$Root,$Previous) {
@@ -199,7 +205,7 @@ function Uninstall-Product($Manifest,[switch]$KeepCurrentProxy,[switch]$DeleteLo
     }
     # Remove only our pointer value; leave unrelated values/subkeys untouched. A surviving marker supports -InstallDir recovery.
     if (Get-InstalledRoot) { Remove-InstallPointer $Manifest.Root }
-    foreach ($name in @('last-applied.json','proxy-before-install.json','status.json','control-status.json','stop.request','installation.json')) {
+    foreach ($name in @('last-applied.json','proxy-before-install.json','status.json','control-status.json','check.request','stop.request','installation.json')) {
         $p=Join-Path $Manifest.Root ('state/'+$name); Assert-PlainPath $p
         if (Test-Path -LiteralPath $p) { Remove-Item -LiteralPath $p -Force }
     }
@@ -291,7 +297,7 @@ function Restore-OwnedProxy($Manifest,[switch]$Force) {
     if (Test-RestoreAllowed $current $original) { Restore-ManualSnapshot $original; Write-Output '当前注册表等于原配置，已重新通知并验证 WinINet'; return }
     $last=$null; $lastPath=Join-Path $Manifest.Root 'state\last-applied.json'
     if (Test-Path -LiteralPath $lastPath) { $last=Get-Content -LiteralPath $lastPath -Raw -Encoding UTF8 | ConvertFrom-Json }
-    if (-not (Test-RestoreAllowed $current $last -Force:$Force)) { throw '检测到工具最后一次写入之后的代理变更或未完成写入。已停止监控；为保护后续修改，未恢复/删除安装。确认后使用 -ForceRestore；卸载也可用 -KeepCurrentProxy 保留当前配置' }
+    if (-not (Test-RestoreAllowed $current $last -Force:$Force)) { $conflict=[InvalidOperationException]::new('检测到工具最后一次写入之后的代理变更或未完成写入。已停止监控；为保护后续修改，未恢复/删除安装。确认后使用 -ForceRestore；卸载也可用 -KeepCurrentProxy 保留当前配置'); $conflict.Data['WiFiProxyCode']='RestoreConflict'; throw $conflict }
     Restore-ManualSnapshot $original
     Write-Output '已恢复安装前手动代理配置；PAC/自动检测保持当前设置'
 }

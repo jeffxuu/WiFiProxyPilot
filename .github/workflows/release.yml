@@ -1,0 +1,88 @@
+name: Windows EXE build and release
+on:
+  push:
+    branches: [feature/exe-productization]
+    tags: [v3.0.0]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: wifi-exe-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.425
+      - name: Existing engine and productization tests on Windows PowerShell 5.1
+        id: engine
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force release/generated | Out-Null
+          & powershell.exe -NoProfile -File tests/Run-Tests.ps1 -ResultPath release/generated/engine-results-windows.json
+          if ($LASTEXITCODE -ne 0) { throw 'PowerShell tests failed' }
+          $r=Get-Content release/generated/engine-results-windows.json -Raw | ConvertFrom-Json
+          if ($r.Total -lt 95 -or $r.Failed -ne 0) { throw 'Original test floor not met' }
+      - name: Self-contained build and launcher tests
+        id: build
+        shell: powershell
+        run: ./release/Build.ps1
+      - name: Real Windows EXE and WinForms smoke in Chinese and space path
+        id: smoke
+        shell: powershell
+        run: |
+          $smokeRoot=Join-Path $env:RUNNER_TEMP 'WiFi 中文 smoke path'
+          New-Item -ItemType Directory -Path $smokeRoot -Force | Out-Null
+          Copy-Item release/dist/WiFiProxySwitcher.exe (Join-Path $smokeRoot 'WiFiProxySwitcher.exe')
+          $report=Join-Path (Get-Location) 'release/generated/exe-smoke-windows.json'
+          $p=Start-Process -FilePath (Join-Path $smokeRoot 'WiFiProxySwitcher.exe') -ArgumentList @('/self-test','/output',('"'+$report+'"')) -PassThru -Wait
+          if ($p.ExitCode -ne 0 -or -not (Test-Path $report)) { throw 'EXE smoke failed' }
+          $r=Get-Content $report -Raw | ConvertFrom-Json
+          if ($r.ProxyWritten -or $r.WinFormsRender -ne 'Passed') { throw 'Smoke contract failed' }
+      - name: Publish v3.0.0 release assets
+        id: publish
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create v3.0.0 release/dist/WiFiProxySwitcher.exe release/dist/WiFiProxySwitcher.zip release/dist/SHA256.txt --verify-tag --title 'v3.0.0 · Windows 11 Wi-Fi 智能代理自动切换工具' --notes-file release/NOTES-v3.0.0.md
+          if ($LASTEXITCODE -ne 0) { throw 'Release creation failed; existing tags/assets are never silently replaced' }
+          gh release view v3.0.0 --json url,tagName,assets | Out-File release/generated/published-release.json -Encoding utf8
+      - name: Upload evidence and distributables
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-exe-evidence-${{ github.sha }}
+          path: |
+            release/generated/*results*.json
+            release/generated/exe-smoke-windows.*
+            release/generated/published-release.json
+            release/dist/*
+      - name: Record CI outcome on the development branch
+        if: always()
+        shell: powershell
+        env:
+          ENGINE_OUTCOME: ${{ steps.engine.outcome }}
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+          SMOKE_OUTCOME: ${{ steps.smoke.outcome }}
+          PUBLISH_OUTCOME: ${{ steps.publish.outcome }}
+        run: |
+          $receipt=[ordered]@{SourceCommit=$env:GITHUB_SHA;Ref=$env:GITHUB_REF;RunUrl=('https://github.com/'+$env:GITHUB_REPOSITORY+'/actions/runs/'+$env:GITHUB_RUN_ID);Engine=$env:ENGINE_OUTCOME;Build=$env:BUILD_OUTCOME;Smoke=$env:SMOKE_OUTCOME;Publish=$env:PUBLISH_OUTCOME;Time=[DateTimeOffset]::Now.ToString('o')}
+          foreach ($pair in @(@('EngineTests','release/generated/engine-results-windows.json'),@('LauncherTests','release/generated/launcher-results.json'),@('ExeSmoke','release/generated/exe-smoke-windows.json'),@('Release','release/generated/published-release.json'))) {
+            if (Test-Path $pair[1]) { $receipt[$pair[0]]=Get-Content $pair[1] -Raw | ConvertFrom-Json }
+          }
+          $json=$receipt | ConvertTo-Json -Depth 20
+          git fetch origin refs/heads/feature/exe-productization:refs/remotes/origin/feature/exe-productization
+          if ($LASTEXITCODE) { throw 'Cannot fetch receipt destination' }
+          git checkout -B feature/exe-productization origin/feature/exe-productization
+          $json | Out-File release/ci-latest.json -Encoding utf8
+          if (Test-Path release/generated/exe-smoke-windows.png) { Copy-Item release/generated/exe-smoke-windows.png release/ci-ui.png; git add release/ci-ui.png }
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add release/ci-latest.json
+          git commit -m 'Record Windows productization verification outcome'
+          if ($LASTEXITCODE -eq 0) { git push origin HEAD:feature/exe-productization }

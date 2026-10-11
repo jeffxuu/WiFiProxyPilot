@@ -15,6 +15,7 @@ try {
     if ($null -ne $install.PSObject.Properties['Phase'] -and $install.Phase -eq 'Uninstalling') { exit 0 }
     Read-OriginalProxy $PSScriptRoot | Out-Null
     $stateDir=Join-Path $PSScriptRoot 'state'; $stopFile=Join-Path $stateDir 'stop.request'
+    $checkFile=Join-Path $stateDir 'check.request'
     if (Test-Path -LiteralPath $stopFile) { exit 0 }
     $c=Read-Configuration (Join-Path $PSScriptRoot 'config.json')
     $runId=[Guid]::NewGuid().ToString('N')
@@ -41,6 +42,7 @@ try {
     }
     try { Assert-ProxyPolicy } catch { & $services.Log 'WARN' '检测到代理管理策略，受限制的写入将拒绝执行' @{Error=$_.Exception.Message} }
     while (-not (& $services.IsStopping)) {
+        if (Test-Path -LiteralPath $checkFile) { Remove-Item -LiteralPath $checkFile -Force }
         $wait=[int]$c.PollSeconds*1000
         try {
             $cycle=Invoke-MonitorCycle $state $c $services $clock.Elapsed.TotalSeconds
@@ -49,7 +51,7 @@ try {
             $msg=$_.Exception.Message
             Write-MonitorFailure $state $services $msg $clock.Elapsed.TotalSeconds
         }
-        $notified=Wait-MonitorSignal $wait $script:WatcherNative $services.IsStopping
+        $notified=Wait-MonitorSignal $wait $script:WatcherNative $services.IsStopping { Test-Path -LiteralPath $checkFile }
         if ($notified) { Wait-MonitorSignal ([int]$c.DebounceMilliseconds) $null $services.IsStopping | Out-Null }
     }
     Write-JsonAtomic (Join-Path $stateDir 'status.json') @{Time=[DateTimeOffset]::Now.ToString('o');PID=$PID;RunId=$runId;Outcome='Stopped'}

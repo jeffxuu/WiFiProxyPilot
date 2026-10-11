@@ -1,17 +1,22 @@
 ﻿#requires -Version 5.1
 [CmdletBinding()]
 param(
-    [ValidateSet('Install','Start','Stop','Uninstall','Restore','Status')][string]$Action='Status',
+    [ValidateSet('Install','Start','Stop','Uninstall','Restore','Status','Check')][string]$Action='Status',
     [string]$InstallDir='',
     [switch]$ForceRestore,
     [switch]$KeepCurrentProxy,
     [switch]$DeleteLogs,
-    [switch]$Quiet
+    [switch]$Quiet,
+    [string]$DesktopSource='',
+    [string]$ResultPath=''
 )
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'lib\Core.ps1')
 . (Join-Path $PSScriptRoot 'lib\Windows.ps1')
 . (Join-Path $PSScriptRoot 'lib\Lifecycle.ps1')
+. (Join-Path $PSScriptRoot 'lib\Desktop.ps1')
+[Console]::OutputEncoding=[Text.UTF8Encoding]::new($false)
+$result=[ordered]@{Succeeded=$false;Code='';Message='';Data=$null}
 $script:Pointer='Software\WiFiProxySwitcher'
 $script:TaskPrefix='WiFiProxySwitcher-'
 $mutex=$null; $owned=$false; $code=0
@@ -43,6 +48,7 @@ try {
             elseif (@(Get-ChildItem -LiteralPath $InstallDir -Force).Count) { throw '目标目录不是空目录，拒绝覆盖用户文件' }
         }
         $manifest=Install-ProductFiles $source $InstallDir $previous
+        if ($DesktopSource) { Install-DesktopFiles $InstallDir $DesktopSource | Out-Null }
         $k=[Microsoft.Win32.Registry]::CurrentUser.CreateSubKey($script:Pointer)
         try { $k.SetValue('InstallDir',$InstallDir,[Microsoft.Win32.RegistryValueKind]::String) } finally { $k.Dispose() }
         $exe=Join-Path $env:SystemRoot 'System32\wscript.exe'
@@ -53,12 +59,20 @@ try {
         $settings=New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero)
         Register-ScheduledTask -TaskName $manifest.TaskName -TaskPath '\' -Action $taskAction -Trigger $trigger -Principal $principal -Settings $settings -Description ('WiFiProxySwitcher-v1|'+$manifest.OwnerSid+'|'+$InstallDir) -Force -ErrorAction Stop | Out-Null
         Start-OwnedWatcher $manifest
-        Write-Output ('安装位置: '+$InstallDir)
+        $result.Data=@{InstallDir=$InstallDir}; Write-Output ('安装位置: '+$InstallDir)
     } elseif (-not $root) {
-        if ($Action -in @('Stop','Uninstall','Restore','Status')) { Write-Output '当前用户未安装本工具，无需操作' } else { throw '尚未安装' }
+        if ($Action -in @('Stop','Uninstall','Restore','Status','Check')) { Write-Output '当前用户未安装本工具，无需操作' } else { throw '尚未安装' }
+    } elseif ($Action -eq 'Uninstall' -and -not (Test-Path -LiteralPath (Join-Path $root 'state/installation.json')) -and (Test-Path -LiteralPath (Join-Path $root 'app/desktop.json'))) {
+        Remove-DesktopFiles (Read-DesktopInstall $root)
     } else {
         $manifest=Read-Install $root
         switch ($Action) {
+            'Check' {
+                $w=New-UserMutex 'Watcher'; $free=Enter-Mutex $w; if ($free) { $w.ReleaseMutex() }; $w.Dispose()
+                if ($free) { throw '请先启动监控，再立即检测' }
+                Write-JsonAtomic (Join-Path $root 'state/check.request') @{Time=[DateTimeOffset]::Now.ToString('o')}
+                Write-Output '已请求立即检测；稳定性检查和 Strict/Safe 规则保持不变'
+            }
             'Start' { Start-OwnedWatcher $manifest }
             'Stop' { Stop-OwnedWatcher $manifest; Write-Output '监控与登录任务已停止/禁用；代理保持当前状态，恢复请用 RestoreProxy.bat' }
             'Restore' { Stop-OwnedWatcher $manifest; Restore-OwnedProxy $manifest -Force:$ForceRestore }
@@ -71,17 +85,25 @@ try {
                 if ($null -ne $task) { $taskState=[string]$task.State; $lastResult=(Get-ScheduledTaskInfo -TaskName $manifest.TaskName -TaskPath '\' -ErrorAction Stop).LastTaskResult }
                 $heartbeat=$null; $p=Join-Path $root 'state\status.json'; if (Test-Path -LiteralPath $p) { $heartbeat=Get-Content -LiteralPath $p -Raw -Encoding UTF8 | ConvertFrom-Json }
                 $status=[pscustomobject]@{ InstallDir=$root; TaskName=$manifest.TaskName; TaskState=$taskState; LastTaskResult=$lastResult; WatcherRunning=(-not $free); ManualProxyEnabled=$actual.Enable; ProxyServer=$server; LocalBypass=(@($actual.Bypass -split ';' | Where-Object {$_.Trim() -ieq '<local>'}).Count -gt 0); AutomaticProxyFlags=($actual.Flags -band 12); Heartbeat=$heartbeat }
+                $result.Data=$status
                 if ($Quiet) { Write-JsonAtomic (Join-Path $root 'state/control-status.json') $status } else { $status | ConvertTo-Json -Depth 6 }
             }
             'Uninstall' {
                 if ($ForceRestore -and $KeepCurrentProxy) { throw '-ForceRestore 与 -KeepCurrentProxy 不能同时使用' }
+                $desktop=Read-DesktopInstall $root
                 Uninstall-Product $manifest -KeepCurrentProxy:$KeepCurrentProxy -DeleteLogs:$DeleteLogs -ForceRestore:$ForceRestore
+                Remove-DesktopFiles $desktop
             }
         }
     }
 } catch {
     $code=1
+    $result.Message=$_.Exception.Message; $result.Code='OperationFailed'
+    if ($_.Exception.Data.Contains('WiFiProxyCode')) { $result.Code=[string]$_.Exception.Data['WiFiProxyCode']; if ($result.Code -eq 'RestoreConflict') { $code=20 } }
     Write-ControlFailure $Action $_.Exception.Message
     if (-not $Quiet) { Write-Error $_ -ErrorAction Continue }
 } finally { if ($owned) { $mutex.ReleaseMutex() }; if ($null -ne $mutex) { $mutex.Dispose() } }
+if ($ResultPath) {
+    try { $result.Succeeded=($code -eq 0); Write-JsonAtomic $ResultPath $result } catch { Write-ControlFailure 'Result' $_.Exception.Message; $code=1 }
+}
 exit $code

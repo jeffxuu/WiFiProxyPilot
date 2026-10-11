@@ -193,7 +193,7 @@ Case '任务登录/异常重启/电源/静默启动契约静态检查（不声�
     Check ($vbs.Contains('shell.Run(command, 0, True)') -and $vbs.Contains('WScript.Quit result'))
     $watcher=Get-Content -LiteralPath (Join-Path $root 'ProxyWatcher.ps1') -Raw
     Check ($watcher.Contains('Wait-MonitorSignal $wait'))
-    foreach ($bat in Get-ChildItem -LiteralPath $root -Filter '*.bat') { $text=Get-Content -LiteralPath $bat.FullName -Raw; Check ($text.Contains('DisableDelayedExpansion') -and ($text.Contains('"%~dp0Control.ps1"') -or $text.Contains('"%~dp0Diagnose.ps1"'))) }
+    foreach ($bat in Get-ChildItem -LiteralPath (Join-Path $root 'tools') -Filter '*.bat') { $text=Get-Content -LiteralPath $bat.FullName -Raw; Check ($text.Contains('DisableDelayedExpansion') -and ($text.Contains('"%~dp0..\Control.ps1"') -or $text.Contains('"%~dp0..\Diagnose.ps1"'))) }
 }
 Case 'UTF-8 BOM/中文空格路径与原子状态文件/日志轮转' {
     $temp=Join-Path ([IO.Path]::GetTempPath()) ('WiFi 测试 '+[Guid]::NewGuid().ToString('N')); [IO.Directory]::CreateDirectory($temp) | Out-Null
@@ -218,6 +218,7 @@ Case '配置错误被拒绝，不进行系统写入' {
 }
 . (Join-Path $PSScriptRoot 'Round2.Tests.ps1')
 . (Join-Path $PSScriptRoot 'TaskOwnership.Tests.ps1')
+. (Join-Path $PSScriptRoot 'Productization.Tests.ps1')
 $failed=@($script:results | Where-Object { -not $_.Passed }).Count
 $report=[pscustomobject]@{ Time=[DateTimeOffset]::Now.ToString('o'); Platform=[Environment]::OSVersion.Platform.ToString(); PowerShell=$PSVersionTable.PSVersion.ToString(); Total=$script:results.Count; Passed=$script:results.Count-$failed; Failed=$failed; Results=$script:results.ToArray(); RealWindowsIntegration='NOT RUN by this simulation suite' }
 if ($ResultPath) { Write-JsonAtomic ([IO.Path]::GetFullPath($ResultPath)) $report }

@@ -102,9 +102,10 @@ function Write-MonitorFailure($State,$Services,[string]$Message,[double]$Now) {
     & $Services.Heartbeat @{Target='Retry';SSID='';InterfaceGuid='';Gateway='';ActualEnabled=$null;Stable=$false;Reason=$Message}
 }
 
-function Wait-MonitorSignal([int]$Milliseconds,$Native,[scriptblock]$IsStopping) {
+function Wait-MonitorSignal([int]$Milliseconds,$Native,[scriptblock]$IsStopping,[scriptblock]$IsCheckRequested=$null) {
     $timer=[Diagnostics.Stopwatch]::StartNew()
     while ($timer.ElapsedMilliseconds -lt $Milliseconds -and -not (& $IsStopping)) {
+        if ($null -ne $IsCheckRequested -and (& $IsCheckRequested)) { return $true }
         $chunk=[Math]::Min(500,[Math]::Max(1,$Milliseconds-[int]$timer.ElapsedMilliseconds))
         if ($null -ne $Native) { if ($Native.Wait($chunk)) { return $true } }
         else { Start-Sleep -Milliseconds $chunk }

@@ -2,3 +2,8 @@ state/
 logs/
 artifacts/
 test-results/
+**/bin/
+**/obj/
+publish/
+release/generated/
+release/dist/
