@@ -1,0 +1,627 @@
+﻿{
+    "SourceCommit":  "9b28d66b981ab9b738db7c79138c62c1504e74c9",
+    "Ref":  "refs/heads/feature/exe-productization",
+    "RunUrl":  "https://github.com/jeffxuu/WiFi-test/actions/runs/38185539936",
+    "Engine":  "failure",
+    "Build":  "skipped",
+    "Smoke":  "skipped",
+    "Publish":  "skipped",
+    "Time":  "2026-10-11T23:48:16.2888918+00:00",
+    "EngineTests":  {
+                        "Time":  "2026-10-11T23:48:15.0027405+00:00",
+                        "Platform":  "Win32NT",
+                        "PowerShell":  "5.1.26100.33438",
+                        "Total":  101,
+                        "Passed":  99,
+                        "Failed":  2,
+                        "Results":  [
+                                        {
+                                            "Name":  "白名单精确匹配 MC-Office",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  63
+                                        },
+                                        {
+                                            "Name":  "白名单精确匹配 Meituan",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  1
+                                        },
+                                        {
+                                            "Name":  "白名单精确匹配 mc-office",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  1
+                                        },
+                                        {
+                                            "Name":  "白名单精确匹配 MEITUAN",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  1
+                                        },
+                                        {
+                                            "Name":  "白名单精确匹配 MC-OFFICE",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  1
+                                        },
+                                        {
+                                            "Name":  "白名单精确匹配 meituan",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  1
+                                        },
+                                        {
+                                            "Name":  "非白名单 MC-Office-Guest",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  3
+                                        },
+                                        {
+                                            "Name":  "非白名单 MC-Office-5G",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  1
+                                        },
+                                        {
+                                            "Name":  "非白名单 Meituan-Guest",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  1
+                                        },
+                                        {
+                                            "Name":  "非白名单 Other",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  1
+                                        },
+                                        {
+                                            "Name":  "非白名单  MC-Office",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  1
+                                        },
+                                        {
+                                            "Name":  "非白名单 MC-Office ",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  1
+                                        },
+                                        {
+                                            "Name":  "普通 Wi-Fi A→B 更新网关，即使代理已开启",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  9
+                                        },
+                                        {
+                                            "Name":  "普通→白名单→普通",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  5
+                                        },
+                                        {
+                                            "Name":  "确认断开与 SSID 权限失败区分",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  5
+                                        },
+                                        {
+                                            "Name":  "拒绝无效 IPv4 网关 []",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  110
+                                        },
+                                        {
+                                            "Name":  "拒绝无效 IPv4 网关 [::1]",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  1
+                                        },
+                                        {
+                                            "Name":  "拒绝无效 IPv4 网关 [fe80::1%11]",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  1
+                                        },
+                                        {
+                                            "Name":  "拒绝无效 IPv4 网关 [0.0.0.0]",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  1
+                                        },
+                                        {
+                                            "Name":  "拒绝无效 IPv4 网关 [169.254.1.1]",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  1
+                                        },
+                                        {
+                                            "Name":  "拒绝无效 IPv4 网关 [127.0.0.1]",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  1
+                                        },
+                                        {
+                                            "Name":  "拒绝无效 IPv4 网关 [255.255.255.255]",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  1
+                                        },
+                                        {
+                                            "Name":  "拒绝无效 IPv4 网关 [224.0.0.1]",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  1
+                                        },
+                                        {
+                                            "Name":  "拒绝无效 IPv4 网关 [10.0.0.999]",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  1
+                                        },
+                                        {
+                                            "Name":  "拒绝无效 IPv4 网关 [1.2.3]",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  1
+                                        },
+                                        {
+                                            "Name":  "拒绝无效 IPv4 网关 [010.0.0.1]",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  1
+                                        },
+                                        {
+                                            "Name":  "拒绝无效 IPv4 网关 [10.0.0.1:7890]",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  1
+                                        },
+                                        {
+                                            "Name":  "DHCP 网关延迟及同一 SSID 网关变化",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  5
+                                        },
+                                        {
+                                            "Name":  "多无线接口成本优先、同成本拒绝、缺失路由拒绝",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  94
+                                        },
+                                        {
+                                            "Name":  "Strict 不因端口失败改变规则；Safe 显式关闭",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  10
+                                        },
+                                        {
+                                            "Name":  "防抖与快速切换，最终状态只使用 B 网关",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  36
+                                        },
+                                        {
+                                            "Name":  "短暂断开不写入；权限失败中断确认；确认断开关闭",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  5
+                                        },
+                                        {
+                                            "Name":  "相同状态不重写；本地绕过与已有绕过列表保留",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  57
+                                        },
+                                        {
+                                            "Name":  "真实采集逻辑注入：VPN/以太网/虚拟接口不污染 Wi-Fi 网关",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  126
+                                        },
+                                        {
+                                            "Name":  "真实采集逻辑注入：自己的 IP、过期路由、IPv6 被排除",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  21
+                                        },
+                                        {
+                                            "Name":  "真实采集逻辑注入：多默认路由成本与同成本歧义",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  17
+                                        },
+                                        {
+                                            "Name":  "真实采集逻辑注入：无 Wi-Fi、网卡权限失败、虚拟 WLAN 防护",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  89
+                                        },
+                                        {
+                                            "Name":  "恢复冲突保护及显式强制恢复",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  14
+                                        },
+                                        {
+                                            "Name":  "实际 TCP 诊断：开放端口与连接拒绝",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  1928
+                                        },
+                                        {
+                                            "Name":  "实际 HTTP 诊断：成功、认证要求、非 HTTP 与目标失败",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  87
+                                        },
+                                        {
+                                            "Name":  "所有 PowerShell 文件语法解析及 PS 5.1 常见不兼容语法检查",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  605
+                                        },
+                                        {
+                                            "Name":  "C# 编译、Windows x64 原生结构布局",
+                                            "Passed":  false,
+                                            "Error":  "A parameter cannot be found that matches parameter name \u0027CompilerOptions\u0027.",
+                                            "DurationMilliseconds":  22
+                                        },
+                                        {
+                                            "Name":  "单实例锁跨进程排他（使用测试命名锁，不启动真实监控）",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  2632
+                                        },
+                                        {
+                                            "Name":  "任务登录/异常重启/电源/静默启动契约静态检查（不声称实机通过）",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  12
+                                        },
+                                        {
+                                            "Name":  "UTF-8 BOM/中文空格路径与原子状态文件/日志轮转",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  627
+                                        },
+                                        {
+                                            "Name":  "配置错误被拒绝，不进行系统写入",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  19
+                                        },
+                                        {
+                                            "Name":  "R2 SSID 匹配在土耳其文化下仍严格完整匹配",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  9
+                                        },
+                                        {
+                                            "Name":  "R2 WLAN 句柄错误要求重建，权限错误不当断网",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  190
+                                        },
+                                        {
+                                            "Name":  "R2 WLAN 前后夹读拒绝 SSID A 与 B 路由混合",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  12
+                                        },
+                                        {
+                                            "Name":  "R2 采集期间地址变化事件使快照失效",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  12
+                                        },
+                                        {
+                                            "Name":  "R2 白名单 SSID 已知但 NetTCPIP 查询失败仍能关闭",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  19
+                                        },
+                                        {
+                                            "Name":  "R2 虚拟 WLAN 不阻挡真实 WLAN；任何本机接口 IP 均不能作网关",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  21
+                                        },
+                                        {
+                                            "Name":  "R2 SYSTEM 与服务会话在接触 HKCU 前被拒绝",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  8
+                                        },
+                                        {
+                                            "Name":  "R2 完整生产循环在首次写入之前不执行诊断",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  35
+                                        },
+                                        {
+                                            "Name":  "R2 仅注册表漂移也必须纠正，API 缓存一致不足以跳过",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  63
+                                        },
+                                        {
+                                            "Name":  "R2 写入前切换网络或停止请求不会写旧状态",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  28
+                                        },
+                                        {
+                                            "Name":  "R2 Safe 连续失败后锁定直连，Unknown 不假装恢复",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  121
+                                        },
+                                        {
+                                            "Name":  "R2 Strict 多次诊断失败与网络读取失败均不擅自改规则",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  62
+                                        },
+                                        {
+                                            "Name":  "R2 诊断过程中切换或同 SSID 新事件丢弃旧结果",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  26
+                                        },
+                                        {
+                                            "Name":  "R2 长时间暂停后重新防抖并重查诊断，不复用旧失败",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  37
+                                        },
+                                        {
+                                            "Name":  "R2 PollSeconds=300 时停止仍可中断等待",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  524
+                                        },
+                                        {
+                                            "Name":  "R2 HTTP 不完整状态行、LF-only、过长状态行不能当成功",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  13
+                                        },
+                                        {
+                                            "Name":  "R2 实际代理写入包装：Keep 不可写，回读失败不可记成功，策略拒绝不写",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  23
+                                        },
+                                        {
+                                            "Name":  "R2 压力：5000 次快速变化后收敛，不在不稳定期写代理",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  24199
+                                        },
+                                        {
+                                            "Name":  "R2 压力：3000 个稳定轮询仅写一次，日志不随轮询增长",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  16320
+                                        },
+                                        {
+                                            "Name":  "R2 压力：2000 次连续未知网络不写代理且只限频记日志",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  6795
+                                        },
+                                        {
+                                            "Name":  "R2 压力：1000 条真实日志轮转和 300 次原子状态替换",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  2962
+                                        },
+                                        {
+                                            "Name":  "R2 安装真实文件流程：中文/空格/!/\u0026/方括号与一次性备份",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  3014
+                                        },
+                                        {
+                                            "Name":  "R2 缺文件或现有配置无效在停止与覆盖前失败",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  1320
+                                        },
+                                        {
+                                            "Name":  "R2 首次复制故障不留下无法重装的半安装目标",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  526
+                                        },
+                                        {
+                                            "Name":  "R2 卸载指针删除失败可重试，备份/标记保留且不再次覆盖代理",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  2064
+                                        },
+                                        {
+                                            "Name":  "R2 卸载在删除备份后中断也能继续，未知清单在变更前拒绝",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  1821
+                                        },
+                                        {
+                                            "Name":  "R2 恢复时注册表已等于备份仍必须刷新并验证 WinINet",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  945
+                                        },
+                                        {
+                                            "Name":  "R2 启动锁竞争回归与 50 次重复启动只有一次任务启动",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  312
+                                        },
+                                        {
+                                            "Name":  "R2 停止时任务权限失败仍先发停止标志",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  78
+                                        },
+                                        {
+                                            "Name":  "R2 任务动作被篡改，即使名称/描述相同也不能启动或终止",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  46
+                                        },
+                                        {
+                                            "Name":  "R2 心跳 DateTime/DateTimeOffset/ISO 字符串均保留毫秒和时区",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  11
+                                        },
+                                        {
+                                            "Name":  "R2 原生 SSID 解码使用实际字节长度，非 UTF-8 仍按非白名单处理",
+                                            "Passed":  false,
+                                            "Error":  "Unable to find type [WiFiProxy.Native].",
+                                            "DurationMilliseconds":  6
+                                        },
+                                        {
+                                            "Name":  "R2 关闭代理保留注册表最新地址和绕过项，而非旧 API 缓存",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  3
+                                        },
+                                        {
+                                            "Name":  "R2 实际恢复函数的冲突与显式 Force 参数传递",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  43
+                                        },
+                                        {
+                                            "Name":  "R2 四个实际子进程并发争用锁，释放后才能取得所有权",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  9320
+                                        },
+                                        {
+                                            "Name":  "R2 只读诊断无代理或任务修改调用；VBS 使用相对脚本参数",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  26
+                                        },
+                                        {
+                                            "Name":  "R2 原始注册表字典与 JSON 备份均可验证，损坏备份不能启用监控",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  1430
+                                        },
+                                        {
+                                            "Name":  "R2 升级前保存用户改过的脚本，未知新文件冲突拒绝覆盖",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  2411
+                                        },
+                                        {
+                                            "Name":  "R2 持续写入异常不会被成功的防抖轮次重置日志限频",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  1998
+                                        },
+                                        {
+                                            "Name":  "TaskFix 同账户 SID/短名/域名/中文/云账户别名均按已解析 SID 验证",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  38
+                                        },
+                                        {
+                                            "Name":  "TaskFix CIM uint32/uint16/数字字符串和实际 CLR 枚举均接受 Interactive=3 Limited=0",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  144
+                                        },
+                                        {
+                                            "Name":  "TaskFix Password/S4U/Group/服务登录/Highest/缺失字段仍拒绝",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  180
+                                        },
+                                        {
+                                            "Name":  "TaskFix 不同 SID/不可解析账户/空账户/组主体均拒绝",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  16
+                                        },
+                                        {
+                                            "Name":  "TaskFix 当前显示名称相同但 SID 不同不能绕过所有权验证",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  5
+                                        },
+                                        {
+                                            "Name":  "TaskFix 账户兼容不会放宽描述/目录/脚本/动作数量验证",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  21
+                                        },
+                                        {
+                                            "Name":  "TaskFix 拒绝时仍能只读采集 UserId/SID/原始枚举类型及具体失败原因",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  21
+                                        },
+                                        {
+                                            "Name":  "TaskFix 实际任务查询只接受根目录目标任务，零项返回空，多项拒绝",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  12
+                                        },
+                                        {
+                                            "Name":  "TaskFix 生产 Start/Stop 调用链使用真实归属校验接受短名和 CIM 数值",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  34
+                                        },
+                                        {
+                                            "Name":  "TaskFix 失败安装后从完整新包重装通过实际归属检查且原备份/config 不变",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  1893
+                                        },
+                                        {
+                                            "Name":  "V3 立即检测请求能打断长轮询且不改变网络规则",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  3
+                                        },
+                                        {
+                                            "Name":  "V3 BAT 已移动到 tools，全部入口与原控制脚本正确关联",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  8
+                                        },
+                                        {
+                                            "Name":  "V3 旧安装根目录 BAT 归属在升级后保留，卸载仍能清理",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  2777
+                                        },
+                                        {
+                                            "Name":  "V3 恢复冲突提供机器可读错误代码而非依赖中文文本匹配",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  74
+                                        },
+                                        {
+                                            "Name":  "V3 桌面清单拒绝跨用户、越界文件与无效哈希",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  146
+                                        },
+                                        {
+                                            "Name":  "V3 桌面安装采用版本哈希路径，不覆盖正在运行的旧 EXE",
+                                            "Passed":  true,
+                                            "Error":  "",
+                                            "DurationMilliseconds":  2
+                                        }
+                                    ],
+                        "RealWindowsIntegration":  "NOT RUN by this simulation suite"
+                    }
+}
