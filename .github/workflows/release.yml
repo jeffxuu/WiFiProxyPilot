@@ -80,6 +80,7 @@ jobs:
           if ($LASTEXITCODE) { throw 'Cannot fetch receipt destination' }
           git checkout -B feature/exe-productization origin/feature/exe-productization
           $json | Out-File release/ci-latest.json -Encoding utf8
+          if ($env:GITHUB_REF -eq 'refs/tags/v3.0.0') { $json | Out-File release/ci-v3.0.0.json -Encoding utf8; git add release/ci-v3.0.0.json }
           if (Test-Path release/generated/exe-smoke-windows.png) { Copy-Item release/generated/exe-smoke-windows.png release/ci-ui.png; git add release/ci-ui.png }
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
