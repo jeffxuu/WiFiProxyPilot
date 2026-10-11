@@ -7,7 +7,7 @@ using System.Text;
 using System.Threading;
 
 namespace WiFiProxy {
-    public sealed class WifiLink { public string Guid; public string SSID; }
+    public sealed class WifiLink { public string Guid; public string SSID; public string SsidHex; public bool NameDecoded; }
     public sealed class ProxyState { public bool Enable; public string Server; public string Bypass; public string Pac; public uint Flags; }
     public sealed class Native : IDisposable {
         [StructLayout(LayoutKind.Sequential, CharSet=CharSet.Unicode)]
@@ -38,20 +38,37 @@ namespace WiFiProxy {
         IntPtr handle;
         Notification callback;
         readonly AutoResetEvent changed = new AutoResetEvent(false);
+        long generation;
+        public long Generation { get { return Interlocked.Read(ref generation); } }
         public uint NotificationError { get; private set; }
         public Native() {
             uint version; Check(WlanOpenHandle(2,IntPtr.Zero,out version,out handle),"WlanOpenHandle");
-            callback = delegate { try { changed.Set(); } catch(ObjectDisposedException) {} };
-            uint previous;
-            // ACM is sufficient for connect/disconnect; avoid MSM's extra location-capability requirement.
-            NotificationError=WlanRegisterNotification(handle,0x00000008,true,callback,IntPtr.Zero,IntPtr.Zero,out previous);
-            NetworkChange.NetworkAddressChanged += AddressChanged;
-            NetworkChange.NetworkAvailabilityChanged += AvailabilityChanged;
+            try {
+                callback = delegate(IntPtr data,IntPtr context) {
+                    // Ignore scan-only notifications; they do not invalidate a connected route snapshot.
+                    int code=data==IntPtr.Zero ? 0 : Marshal.ReadInt32(data,4);
+                    if(code!=7 && code!=8) SignalChange();
+                };
+                uint previous;
+                // ACM is sufficient for connect/disconnect; avoid MSM's extra location-capability requirement.
+                NotificationError=WlanRegisterNotification(handle,0x00000008,true,callback,IntPtr.Zero,IntPtr.Zero,out previous);
+                NetworkChange.NetworkAddressChanged += AddressChanged;
+                NetworkChange.NetworkAvailabilityChanged += AvailabilityChanged;
+            } catch { Dispose(); throw; }
         }
-        void AddressChanged(object sender,EventArgs e) { try { changed.Set(); } catch(ObjectDisposedException) {} }
-        void AvailabilityChanged(object sender,NetworkAvailabilityEventArgs e) { try { changed.Set(); } catch(ObjectDisposedException) {} }
+        void SignalChange() { Interlocked.Increment(ref generation); try { changed.Set(); } catch(ObjectDisposedException) {} }
+        void AddressChanged(object sender,EventArgs e) { SignalChange(); }
+        void AvailabilityChanged(object sender,NetworkAvailabilityEventArgs e) { SignalChange(); }
         static void Check(uint error,string api) { if(error!=0) throw new Win32Exception((int)error,api+" 失败 ("+error+")"); }
         public bool Wait(int milliseconds) { return changed.WaitOne(milliseconds); }
+        public static WifiLink DecodeSsid(Guid guid,byte[] bytes,uint length) {
+            if(bytes==null || length==0 || length>32 || length>bytes.Length) throw new InvalidOperationException("SSID 长度无效");
+            string hex=BitConverter.ToString(bytes,0,(int)length).Replace("-","");
+            var link=new WifiLink { Guid=guid.ToString("D"),SsidHex=hex,NameDecoded=true };
+            try { link.SSID=new UTF8Encoding(false,true).GetString(bytes,0,(int)length); }
+            catch(DecoderFallbackException) { link.NameDecoded=false; link.SSID="[raw SSID "+hex+"]"; }
+            return link;
+        }
         public WifiLink[] ReadWifi() {
             IntPtr list; Check(WlanEnumInterfaces(handle,IntPtr.Zero,out list),"WlanEnumInterfaces");
             var result=new List<WifiLink>();
@@ -69,9 +86,8 @@ namespace WiFiProxy {
                         if(size<Marshal.SizeOf(typeof(Connection))) throw new InvalidOperationException("WLAN 连接数据不完整");
                         var conn=(Connection)Marshal.PtrToStructure(data,typeof(Connection));
                         if(conn.State!=1 || conn.Association.Ssid.Length==0 || conn.Association.Ssid.Length>32) throw new InvalidOperationException("SSID 暂时不可读取");
-                        // Reject non-UTF8 bytes rather than invent a possibly whitelisted SSID.
-                        string ssid=new UTF8Encoding(false,true).GetString(conn.Association.Ssid.Bytes,0,(int)conn.Association.Ssid.Length);
-                        result.Add(new WifiLink { Guid=item.Guid.ToString("D"),SSID=ssid });
+                        // The profile field is deliberately unused. SSID bytes are authoritative.
+                        result.Add(DecodeSsid(item.Guid,conn.Association.Ssid.Bytes,conn.Association.Ssid.Length));
                     } finally { WlanFreeMemory(data); }
                 }
                 return result.ToArray();
@@ -86,16 +102,14 @@ namespace WiFiProxy {
         public static ProxyState ReadProxy() {
             // FLAGS_UI preserves the user's autodetect selection even if WPAD failed on this network.
             OptionList list; IntPtr ptr=AllocateOptions(new uint[] {10,2,3,4},out list); uint size=list.Size;
-            bool queried=false;
             try {
                 if(!Query(IntPtr.Zero,75,ref list,ref size)) throw new Win32Exception(Marshal.GetLastWin32Error(),"InternetQueryOption 失败");
-                queried=true;
                 int stride=Marshal.SizeOf(typeof(Option)); var values=new Option[4];
                 for(int i=0;i<4;i++) values[i]=(Option)Marshal.PtrToStructure(IntPtr.Add(ptr,i*stride),typeof(Option));
                 uint flags=unchecked((uint)values[0].Value.ToInt64());
                 return new ProxyState { Flags=flags,Enable=(flags&2)!=0,Server=Marshal.PtrToStringUni(values[1].Value)??"",Bypass=Marshal.PtrToStringUni(values[2].Value)??"",Pac=Marshal.PtrToStringUni(values[3].Value)??"" };
             } finally {
-                if(queried) for(int i=1;i<4;i++) { var opt=(Option)Marshal.PtrToStructure(IntPtr.Add(ptr,i*Marshal.SizeOf(typeof(Option))),typeof(Option)); if(opt.Value!=IntPtr.Zero) GlobalFree(opt.Value); }
+                for(int i=1;i<4;i++) { var opt=(Option)Marshal.PtrToStructure(IntPtr.Add(ptr,i*Marshal.SizeOf(typeof(Option))),typeof(Option)); if(opt.Value!=IntPtr.Zero) GlobalFree(opt.Value); }
                 Marshal.FreeHGlobal(ptr);
             }
         }

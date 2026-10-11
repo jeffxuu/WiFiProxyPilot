@@ -3,6 +3,7 @@ $script:ProxyKey = 'Software\Microsoft\Windows\CurrentVersion\Internet Settings'
 
 function Initialize-Windows {
     if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) { throw '此操作只能在 Windows 当前交互用户下运行' }
+    Assert-InteractiveIdentity (Get-UserSid) ([Diagnostics.Process]::GetCurrentProcess().SessionId)
     if (-not [Environment]::Is64BitProcess) { throw '请使用 64 位 Windows PowerShell 5.1，原生互操作布局仅针对 x64' }
     if (-not ('WiFiProxy.Native' -as [type])) { Add-Type -Path (Join-Path $PSScriptRoot 'Native.cs') }
 }
@@ -20,30 +21,54 @@ function Assert-PlainPath([string]$Path) {
     }
 }
 
+function Get-WlanGeneration($Native) {
+    if ($null -ne $Native.PSObject.Properties['Generation']) { return [long]$Native.Generation }
+    return 0L
+}
+function Get-LinkSignature($Links) {
+    return (@($Links | Sort-Object Guid | ForEach-Object { $hex=''; if ($null -ne $_.PSObject.Properties['SsidHex']) {$hex=$_.SsidHex}; @($_.Guid,$_.SSID,$hex) }) | ConvertTo-Json -Depth 4 -Compress)
+}
 function Get-NetworkSnapshot($Native) {
+    $reopen=$false
     try {
-        $links = @($Native.ReadWifi())
-        if ($links.Count -eq 0) { return [pscustomobject]@{ Kind='Disconnected'; Candidates=@(); Reason='WLAN 枚举确认没有已连接 Wi-Fi' } }
+        $generation=Get-WlanGeneration $Native
+        try { $links = @($Native.ReadWifi()) } catch { $reopen=$true; throw }
         $items = @()
+        if ($links.Count -gt 0) { $allAdapters=@(Get-NetAdapter -IncludeHidden -ErrorAction Stop) }
         foreach ($link in $links) {
-            $adapters = @(Get-NetAdapter -IncludeHidden -ErrorAction Stop | Where-Object { ([Guid]$_.InterfaceGuid) -eq ([Guid]$link.Guid) })
-            if ($adapters.Count -ne 1 -or -not $adapters[0].HardwareInterface -or $adapters[0].Status -ne 'Up') { throw 'WLAN GUID 对应物理网卡尚未就绪或无法唯一关联' }
+            $adapters = @($allAdapters | Where-Object { ([Guid]$_.InterfaceGuid) -eq ([Guid]$link.Guid) })
+            if ($adapters.Count -ne 1) { throw 'WLAN GUID 无法唯一关联网卡' }
+            if (-not $adapters[0].HardwareInterface) { continue }
+            if ($adapters[0].Status -ne 'Up') { throw '物理 WLAN 网卡尚未就绪' }
             $index = $adapters[0].ifIndex
-            $ips = @(Get-NetIPAddress -AddressFamily IPv4 -ErrorAction Stop | Where-Object { $_.InterfaceIndex -eq $index -and $_.AddressState -eq 'Preferred' -and (Test-GatewayIPv4 $_.IPAddress) })
-            $ownIPs = @($ips | ForEach-Object { $_.IPAddress })
-            $routes = @(Get-NetRoute -AddressFamily IPv4 -PolicyStore ActiveStore -ErrorAction Stop | Where-Object { $_.InterfaceIndex -eq $index -and $_.DestinationPrefix -eq '0.0.0.0/0' -and (Test-GatewayIPv4 $_.NextHop) -and $_.State -eq 'Alive' -and $_.ValidLifetime.TotalSeconds -gt 0 -and $_.NextHop -notin $ownIPs })
-            $ifaces = @(Get-NetIPInterface -AddressFamily IPv4 -ErrorAction Stop | Where-Object { $_.InterfaceIndex -eq $index -and $_.ConnectionState -eq 'Connected' })
-            $gateway=''; $metric=[int]::MaxValue; $ready=$false
-            if ($ips.Count -gt 0 -and $routes.Count -gt 0 -and $ifaces.Count -eq 1) {
-                $routes = @($routes | Sort-Object RouteMetric)
-                $best = @($routes | Where-Object { $_.RouteMetric -eq $routes[0].RouteMetric })
-                $hops = @($best.NextHop | Select-Object -Unique)
-                if ($hops.Count -eq 1) { $gateway=$hops[0]; $metric=[long]$routes[0].RouteMetric+[long]$ifaces[0].InterfaceMetric; $ready=$true }
-            }
-            $items += [pscustomobject]@{ SSID=$link.SSID; Guid=$link.Guid; Index=$index; Gateway=$gateway; Metric=$metric; Ready=$ready }
+            $gateway=''; $metric=[long]::MaxValue; $ready=$false; $addressKey=''; $routeError=''
+            # A valid SSID can still disable the proxy on a whitelist even if DHCP/NetTCPIP fails.
+            try {
+                $allIPs=@(Get-NetIPAddress -AddressFamily IPv4 -ErrorAction Stop)
+                $ownIPs=@($allIPs | ForEach-Object { $_.IPAddress })
+                $ips=@($allIPs | Where-Object { $_.InterfaceIndex -eq $index -and $_.AddressState -eq 'Preferred' -and (Test-GatewayIPv4 $_.IPAddress) })
+                $routes=@(Get-NetRoute -AddressFamily IPv4 -PolicyStore ActiveStore -ErrorAction Stop | Where-Object { $_.InterfaceIndex -eq $index -and $_.DestinationPrefix -eq '0.0.0.0/0' -and (Test-GatewayIPv4 $_.NextHop) -and $_.State -eq 'Alive' -and $_.ValidLifetime.TotalSeconds -gt 0 -and $_.NextHop -notin $ownIPs })
+                $ifaces=@(Get-NetIPInterface -AddressFamily IPv4 -ErrorAction Stop | Where-Object { $_.InterfaceIndex -eq $index -and $_.ConnectionState -eq 'Connected' })
+                $addressKey=@($ips | ForEach-Object { $_.IPAddress } | Sort-Object) | ConvertTo-Json -Compress
+                if ($ips.Count -gt 0 -and $routes.Count -gt 0 -and $ifaces.Count -eq 1) {
+                    $routes=@($routes | Sort-Object RouteMetric)
+                    $best=@($routes | Where-Object { $_.RouteMetric -eq $routes[0].RouteMetric })
+                    $hops=@($best.NextHop | Select-Object -Unique)
+                    if ($hops.Count -eq 1) { $gateway=$hops[0]; $metric=[long]$routes[0].RouteMetric+[long]$ifaces[0].InterfaceMetric; $ready=$true }
+                }
+            } catch { $routeError=$_.Exception.Message }
+            $matchable=$true; $hex=''
+            if ($null -ne $link.PSObject.Properties['NameDecoded']) { $matchable=$link.NameDecoded }
+            if ($null -ne $link.PSObject.Properties['SsidHex']) { $hex=$link.SsidHex }
+            $addressKey=@($addressKey,$hex) | ConvertTo-Json -Compress
+            $items += [pscustomobject]@{ SSID=$link.SSID; Matchable=$matchable; Guid=$link.Guid; Index=$index; Gateway=$gateway; Metric=$metric; Ready=$ready; AddressKey=$addressKey; RouteError=$routeError }
         }
-        return [pscustomobject]@{ Kind='Connected'; Candidates=$items; Reason='' }
-    } catch { return [pscustomobject]@{ Kind='Unknown'; Candidates=@(); Reason=$_.Exception.Message } }
+        # Bracket the route read with WLAN reads. Never combine SSID A with routes read after switching to B.
+        try { $after=@($Native.ReadWifi()) } catch { $reopen=$true; throw }
+        if ((Get-LinkSignature $links) -cne (Get-LinkSignature $after) -or $generation -ne (Get-WlanGeneration $Native)) { throw '采集期间网络已变化，丢弃混合快照' }
+        $kind='Connected'; if ($items.Count -eq 0) { $kind='Disconnected' }
+        return [pscustomobject]@{ Kind=$kind; Candidates=$items; Reason=''; Generation=$generation; ReopenNative=$false }
+    } catch { return [pscustomobject]@{ Kind='Unknown'; Candidates=@(); Reason=$_.Exception.Message; Generation=(Get-WlanGeneration $Native); ReopenNative=$reopen } }
 }
 
 function Assert-ProxyPolicy {
@@ -75,24 +100,31 @@ function Get-ManualSnapshot {
 
 function Set-TargetProxy($Target) {
     Assert-ProxyPolicy
-    $before=[WiFiProxy.Native]::ReadProxy()
-    if (Test-TargetMatches $before $Target) { return $false }
+    if ($Target.Action -notin @('Enable','Disable')) { throw '拒绝将 Keep/未知目标传入代理写入函数' }
+    $before=Read-SystemProxy
+    $stored=Get-ManualSnapshot
+    if ((Test-TargetMatches $before $Target) -and (Test-RegistryMatchesTarget $stored $Target)) { return [pscustomobject]@{ Changed=$false; Snapshot=$null } }
     $server=$before.Server; $bypass=$before.Bypass
     if ($Target.Action -eq 'Enable') { $server=$Target.Server; $bypass=Add-LocalBypass $bypass }
-    [WiFiProxy.Native]::SetManual(($Target.Action -eq 'Enable'),$server,$bypass)
-    $actual=[WiFiProxy.Native]::ReadProxy()
+    else {
+        if ($stored.ProxyServer.Exists -and $stored.ProxyServer.Kind -eq 'String') { $server=[string]$stored.ProxyServer.Value }
+        if ($stored.ProxyOverride.Exists -and $stored.ProxyOverride.Kind -eq 'String') { $bypass=[string]$stored.ProxyOverride.Value }
+    }
+    Set-SystemManualProxy ($Target.Action -eq 'Enable') $server $bypass
+    $actual=Read-SystemProxy
     $reg=Get-ManualSnapshot
     if (-not (Test-TargetMatches $actual $Target) -or [int]$reg.ProxyEnable.Value -ne [int]$actual.Enable -or ($actual.Enable -and ($reg.ProxyServer.Value -cne $server -or $reg.ProxyOverride.Value -cne $bypass))) { throw '代理 API / 注册表回读验证失败' }
-    return $true
+    return [pscustomobject]@{ Changed=$true; Snapshot=$reg }
 }
 
 function Restore-ManualSnapshot($Snapshot) {
+    Assert-ManualSnapshot $Snapshot
     Assert-ProxyPolicy
     $server=''; $bypass=''; $enabled=$false
     if ($Snapshot.ProxyServer.Exists) { $server=[string]$Snapshot.ProxyServer.Value }
     if ($Snapshot.ProxyOverride.Exists) { $bypass=[string]$Snapshot.ProxyOverride.Value }
     if ($Snapshot.ProxyEnable.Exists) { $enabled=[int]$Snapshot.ProxyEnable.Value -ne 0 }
-    [WiFiProxy.Native]::SetManual($enabled,$server,$bypass)
+    Set-SystemManualProxy $enabled $server $bypass
     $k=[Microsoft.Win32.Registry]::CurrentUser.CreateSubKey($script:ProxyKey)
     try {
         foreach ($name in @('ProxyEnable','ProxyServer','ProxyOverride')) {
@@ -102,7 +134,7 @@ function Restore-ManualSnapshot($Snapshot) {
     } finally { $k.Dispose() }
     [WiFiProxy.Native]::Refresh()
     if (-not (Test-RestoreAllowed (Get-ManualSnapshot) $Snapshot)) { throw '恢复原代理注册表配置回读失败' }
-    $actual=[WiFiProxy.Native]::ReadProxy()
+    $actual=Read-SystemProxy
     if ($actual.Enable -ne $enabled -or $actual.Server -cne $server -or $actual.Bypass -cne $bypass) { throw '恢复原代理 WinINet 回读失败' }
 }
 
@@ -120,13 +152,13 @@ function Test-ProxyEndpoint([string]$Gateway,$Config) {
                     $request='GET '+$url.AbsoluteUri+" HTTP/1.1`r`nHost: "+$url.Authority+"`r`nConnection: close`r`n`r`n"
                     $bytes=[Text.Encoding]::ASCII.GetBytes($request); $stream.Write($bytes,0,$bytes.Length)
                     # A bounded status-line read, with a total deadline (not an unbounded slow-drip read).
-                    $deadline=[Diagnostics.Stopwatch]::StartNew(); $line=[Collections.Generic.List[byte]]::new()
+                    $deadline=[Diagnostics.Stopwatch]::StartNew(); $line=[Collections.Generic.List[byte]]::new(); $terminated=$false
                     while ($line.Count -lt 1024 -and $deadline.ElapsedMilliseconds -lt $Config.DiagnosticTimeoutMilliseconds) {
                         $stream.ReadTimeout=[Math]::Max(1,[int]$Config.DiagnosticTimeoutMilliseconds-[int]$deadline.ElapsedMilliseconds)
-                        $b=$stream.ReadByte(); if ($b -lt 0 -or $b -eq 10) { break }; $line.Add([byte]$b)
+                        $b=$stream.ReadByte(); if ($b -lt 0) { break }; if ($b -eq 10) { $terminated=$true; break }; $line.Add([byte]$b)
                     }
                     $status=[Text.Encoding]::ASCII.GetString($line.ToArray())
-                    if ($status -match '^HTTP/1\.[01] ([0-9]{3})(?: |\r|$)') {
+                    if ($terminated -and $status.EndsWith("`r") -and $status -match '^HTTP/1\.[01] ([0-9]{3})(?: |\r)') {
                         $code=[int]$Matches[1]
                         if ($code -ge 200 -and $code -lt 400) { $result='HttpResponse'; $reason='显式 HTTP 代理请求返回成功状态；不代表所有目标或 HTTPS 都可用' }
                         elseif ($code -eq 407) { $result='Unavailable'; $reason='HTTP 代理需要认证，本工具不提供凭据' }
@@ -141,3 +173,6 @@ function Test-ProxyEndpoint([string]$Gateway,$Config) {
     finally { $client.Dispose() }
     return [pscustomobject]@{ Health=$result; Reason=$reason }
 }
+
+function Read-SystemProxy { return [WiFiProxy.Native]::ReadProxy() }
+function Set-SystemManualProxy([bool]$Enable,[string]$Server,[string]$Bypass) { [WiFiProxy.Native]::SetManual($Enable,$Server,$Bypass) }

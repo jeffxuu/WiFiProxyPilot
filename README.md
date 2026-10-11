@@ -6,6 +6,8 @@
 
 **验证边界：云端 Linux 的模拟与静态检查已通过；尚未在真实 Windows 11 / PowerShell 5.1 验证 WLAN、注册表、任务或设置 UI。请先完成 [本机验收](docs/WINDOWS_ACCEPTANCE.md)。** 网关本身不保证有代理服务，Strict 模式可能使没有代理的网络无法上网。
 
+本项目已完成第二轮源码修复与压力测试，Bug 清单、15 项审查对应关系和验证边界见 [第二轮审查记录](docs/REVIEW_ROUND2.md)。
+
 ## 快速安装
 
 1. 解压完整项目到本地目录，支持中文、空格和 `!`。如果 Windows 将下载文件标记为来自 Internet，确认来源和内容后在 ZIP 属性中解除锁定，再解压；组织策略禁止脚本/WSH 时联系管理员，不关闭安全防护。
@@ -19,7 +21,7 @@
 Install.bat -InstallDir "D:\我的工具\WiFi 代理"
 ```
 
-重复安装保留原始备份和已安装 `config.json`，修复/更新本工具脚本与任务。已有安装不能直接迁移；先卸载再指定新目录。安装拒绝覆盖普通非空目录、网络共享、链接及联接点；专用安装目录 ACL 仅给当前用户、SYSTEM 和 Administrators 完全控制。任务创建失败时保留备份和安装记录，可修复策略后重试。安装文件不需要联网下载。
+重复安装保留原始备份、已安装 `config.json` 及它原有的归属哈希，修复/更新本工具脚本与任务。改过的脚本在覆盖前保存到 `user-backups`；新版本文件与非工具文件同名时拒绝覆盖。首次安装使用相邻暂存目录，完整预检后移入目标；中途复制失败不留下半安装目标。已有安装不能直接迁移；先卸载再指定新目录。安装拒绝覆盖普通非空目录、网络共享、链接及联接点；专用安装目录 ACL 仅给当前用户、SYSTEM 和 Administrators 完全控制。任务创建失败时保留备份和安装记录，可修复策略后重试。安装文件不需要联网下载。安装路径支持中文、空格、`!`、`&`、括号等；成对 `%NAME%` 形式的安装路径因任务计划程序会展开环境变量而明确拒绝，请使用其他目录。VBS 自身用当前目录中的固定相对脚本名，避免把源目录插入可展开的 Run 命令。
 
 ## 操作入口
 
@@ -32,6 +34,7 @@ Install.bat -InstallDir "D:\我的工具\WiFi 代理"
 | `Uninstall.bat` | 停监控、恢复、删除专属任务和启动指针、按清单移除文件 |
 | `Status.bat` | 当前用户安装、任务、进程锁、心跳、实际代理和自动代理标志 |
 | `SilentLauncher.vbs` | 真正隐藏的控制/后台启动入口 |
+| `Diagnose.bat` | 只读本机诊断，默认不连接代理端口；`-Probe` 明确开启诊断连接 |
 | `tests\Run-Tests.bat` | 不改真实代理的测试套件 |
 
 BAT 双击可能短暂出现控制台，不保证零闪烁。可双击 `SilentLauncher.vbs` 静默启动；所有日常控制也支持 VBS 参数：
@@ -44,13 +47,13 @@ wscript.exe //B //Nologo "D:\项目 中文\SilentLauncher.vbs" Restore
 wscript.exe //B //Nologo "D:\项目 中文\SilentLauncher.vbs" Uninstall
 ```
 
-VBS 白名单参数不支持任意命令拼接。需要自定义目录/强制恢复等选项时使用 `Control.ps1 -Quiet` 搭配 `powershell.exe -WindowStyle Hidden`，或可见 BAT 入口。静默失败写入 `%LOCALAPPDATA%\WiFiProxySwitcher-Control\control-errors.log`（256 KiB，1 个归档）；静默 Status 的结果可直接从 `state\status.json` 和日志读取。批处理自动化设置 `WIFI_NO_PAUSE=1` 可关闭结尾 pause；退出码保留底层 PowerShell 的成功/失败。
+VBS 白名单参数不支持任意命令拼接。需要自定义目录/强制恢复等选项时使用 `Control.ps1 -Quiet` 搭配 `powershell.exe -WindowStyle Hidden`，或可见 BAT 入口。静默失败写入 `%LOCALAPPDATA%\WiFiProxySwitcher-Control\control-errors.log`（256 KiB，1 个归档）；静默 Status 将完整状态写入 `state\control-status.json`，监控心跳仍在 `state\status.json`。`SilentLauncher.vbs Diagnose` 将只读报告写入 `%LOCALAPPDATA%\WiFiProxySwitcher-Control\diagnostics.json`。批处理自动化设置 `WIFI_NO_PAUSE=1` 可关闭结尾 pause；退出码保留底层 PowerShell 的成功/失败。
 
 ## 自启动与运行行为
 
 任务名称为 `WiFiProxySwitcher-<当前用户 SID>`，根任务目录，仅当前用户 `Interactive` / `Limited`，不保存密码、不使用 SYSTEM、不请求不必要的提权。登录触发，启动目录为安装目录；电池允许、不因切换电池停止、无执行时限、`IgnoreNew` 防重复、异常退出间隔 1 分钟最多重启 999 次。VBS 等待真实监控进程退出并传递退出码，任务不会把正常启动后还在运行的脚本误认为完成。
 
-WLAN ACM 通知和 .NET 网络地址变化事件唤醒检测，默认 5 秒轮询兜底覆盖 DHCP 与休眠唤醒。普通变化需两次一致快照且至少 400 ms；断开确认 2 秒。启动立即读取，写入前再读一次防止过期事件。DHCP/读取失败前 15 秒按 1 秒快速重试，随后按轮询间隔继续；事件可提前唤醒。实际延迟还包括 NetTCPIP 查询时间与诊断限时，需实机测量。锁屏可运行，注销后任务终止，下次登录重启；跨进程用户命名互斥锁保证每用户单监控实例。
+WLAN ACM 通知和 .NET 网络地址变化事件唤醒检测，默认 5 秒轮询兜底覆盖 DHCP 与休眠唤醒。普通变化需两次一致快照且至少 400 ms；断开确认 2 秒。启动立即读取，路由采集前后核对 WLAN SSID 原始身份与事件 Generation，写入前再读一次防止混合快照和过期事件。DHCP/读取失败前 15 秒按 1 秒快速重试，随后按轮询间隔继续；事件可提前唤醒。Strict 完成稳定目标处理后才诊断。长时间暂停会使旧稳定状态和诊断失效；等待按最多 500 ms 小段检查停止请求。实际延迟还包括 NetTCPIP 查询时间与诊断限时，需实机测量。锁屏可运行，注销后任务终止，下次登录重启；跨进程用户命名互斥锁保证每用户单监控实例。
 
 `Stop` 为持久停止（下次登录也不启动），`Start` 恢复登录自启。监控运行期间会在下次检测纠正其他软件或手工对**手动代理**的修改，这是本工具的管理行为。想保留手工设置，先停止监控。
 
@@ -76,7 +79,7 @@ WLAN ACM 通知和 .NET 网络地址变化事件唤醒检测，默认 5 秒轮�
 
 **Strict**：只要有效非白名单网关就设置，不等待诊断成功，也不因端口失败改规则。
 
-**Safe**：未知诊断不改变原 SSID 规则；两次连续 TCP 拒绝/超时、无有效 HTTP 状态行或认证 407 才判不可用并关闭，继续限频重试。TCP 开放仅表示端口可连接，不能证明 HTTP 代理；Http 模式发送无凭据的显式 HTTP GET，2xx/3xx 表示该请求收到响应，不能证明所有网站或 HTTPS CONNECT 可用。5xx/其他失败可能来自目标站点，保持 Unknown，避免错误宣称代理坏了。Safe 可能绕过期望的代理，需用户明确选用。
+**Safe**：未知诊断不改变原 SSID 规则；两次连续 TCP 拒绝/超时、无有效 HTTP 状态行或认证 407 才判不可用并关闭，继续限频重试。TCP 开放仅表示端口可连接，不能证明 HTTP 代理；Http 模式发送无凭据的显式 HTTP GET，2xx/3xx 表示该请求收到响应，不能证明所有网站或 HTTPS CONNECT 可用。5xx/其他失败可能来自目标站点，记为 Unknown，避免错误宣称代理坏了。已经确认不可用并关闭的 Safe 状态，不会因一次 Unknown 就重新启用；同一网络须等到积极检测成功，或链路身份变化后重新判定。Safe 可能绕过期望的代理，需用户明确选用。
 
 多物理 Wi-Fi：指定首选 GUID 优先；否则所有候选都具有就绪路由时按 `RouteMetric + InterfaceMetric` 最小唯一值选取。相同成本或未就绪不猜测。每接口多默认路由按 RouteMetric 最低值选取；同成本不同网关拒绝。以太网、VPN、WSL 等默认路由不会参与 Wi-Fi 选择。纯有线、无无线连接按本项目规则关闭手动代理。
 
@@ -93,7 +96,7 @@ Uninstall.bat -KeepCurrentProxy
 Uninstall.bat -DeleteLogs
 ```
 
-`-ForceRestore` 明确允许覆盖当前手动值；`-KeepCurrentProxy` 明确卸载但保留当前值，二者互斥。默认保留轮转日志和被用户修改过的项目文件；`-DeleteLogs` 仅删工具日志，**不递归删除整个安装目录**。已安装 config 后来修改会按哈希保留。重复卸载无安装指针时无副作用。专属启动项仅为本工具任务和 HKCU 安装指针，没有 Run 项或启动文件夹残留；静默控制错误日志不属于后台启动项，可手动删除。
+`-ForceRestore` 明确允许覆盖当前手动值；`-KeepCurrentProxy` 明确卸载但保留当前值，二者互斥。默认保留轮转日志和被用户修改过的项目文件；`-DeleteLogs` 仅删工具日志，**不递归删除整个安装目录**。已安装 config 后来修改会按哈希保留。重复卸载无安装指针时无副作用。卸载用持久化 Uninstalling 阶段支持中断后重试；若指针已删除但清理中断，从完整新包执行 `Uninstall.bat -InstallDir "原安装目录"`。空目录、默认保留日志、用户修改文件与 user-backups 可保留，均不启动进程。专属启动项仅为本工具任务和 HKCU 安装指针，没有 Run 项或启动文件夹残留；静默控制错误日志不属于后台启动项，可手动删除。
 
 不要删除/编辑 state 备份和清单。这里保存原代理及网络元数据，应按个人配置保护，分享日志前注意 SSID / GUID / IP 隐私。日志不记录密码、PAC URL、代理凭据或任意原有代理字符串；原始备份必须保留原手动值，受安装目录 ACL 保护。
 
@@ -101,7 +104,7 @@ Uninstall.bat -DeleteLogs
 
 - Windows 11 新版本 WLAN 当前连接查询可能需要位置权限。错误 5 / `ERROR_ACCESS_DENIED` 时打开 设置 → 隐私和安全性 → 位置，按系统/组织政策允许位置及桌面应用访问，重启监控。权限不足不是断网，程序不写代理。位置图标/系统首次权限提示由 Windows 控制；本工具不自行弹窗、不绕过权限。只订阅 ACM，避免 MSM 的附加能力要求。
 - WLAN AutoConfig 服务不可用、接口在关联中、网关尚未完成 DHCP、IP 不是 Preferred、默认路由过期/歧义：Keep + 日志 + 重试，不使用历史值。
-- 不提供 netsh 文本或配置文件名兜底；非 UTF-8 SSID 字节拒绝识别，避免编码替换导致错误白名单。非 UTF-8 SSID 的设备需单独改进后使用。
+- 不提供 netsh 文本或配置文件名兜底；非 UTF-8 SSID 以原始字节的十六进制身份表示，按非白名单处理；该显示文本禁止命中字符串白名单，避免编码替换或伪造显示文本误判。
 - 检测 HKCU/HKLM 的常见代理管理策略；只要发现受管就拒绝写入。未涵盖所有 MDM/安全软件策略，API/注册表回读进一步发现不一致。组织禁止 WSH、PowerShell、Add-Type 或任务注册时不能承诺运行；交由管理员处理所需权限，不永久改执行策略。Bypass 仅限该进程，不绕过组策略、WDAC/AppLocker 或防病毒。
 - PAC/自动检测保持不变并写警告；它们可能优先于手动代理，本工具不承诺消除这样的选路冲突。未修改 RAS/VPN 的独立拨号连接设置。
 - 使用自身代理实现、忽略系统代理的程序不受本工具控制。需要认证的网关代理不在本工具功能范围内。
@@ -116,18 +119,23 @@ Uninstall.bat -DeleteLogs
 WiFi-test/
   Install.bat / Start.bat / Stop.bat / Uninstall.bat
   RestoreProxy.bat / Status.bat
-  Control.ps1              安装、任务管理、恢复、卸载
+  Control.ps1              安装、任务管理、恢复、卸载入口
+  Diagnose.ps1 / Diagnose.bat  只读本机诊断
   ProxyWatcher.ps1         常驻监控、去重、防抖、诊断、代理验证
   SilentLauncher.vbs       隐藏启动并传递退出码
   config.json
   lib/Core.ps1             可注入纯规则、配置、文件与日志
   lib/Windows.ps1          结构化网卡/路由、注册表、诊断、互斥锁
   lib/Native.cs            WLAN/WinINet PInvoke 与事件
-  tests/Run-Tests.ps1 / Run-Tests.bat / ProbeServer.cs
+  lib/Monitor.ps1          实际监控循环，可注入系统边界测试
+  lib/Lifecycle.ps1        实际安装/启动/恢复/卸载函数
+  tests/Run-Tests.ps1 / Run-Tests.bat / Round2.Tests.ps1 / ProbeServer.cs
   tools/cloud-setup.sh
   docs/ARCHITECTURE.md / WINDOWS_ACCEPTANCE.md / TEST_RESULTS.md
+  docs/REVIEW_ROUND2.md / test-results.json
   state/                  安装时生成：备份、清单、心跳、停止标志
   logs/                   安装时生成：有界 JSONL 日志
+  user-backups/            更新时生成：被用户修改过的旧脚本
 ```
 
 架构与官方资料见 [设计说明](docs/ARCHITECTURE.md)，云端证据见 [测试结果](docs/TEST_RESULTS.md)，20 个场景的实机操作见 [Windows 验收](docs/WINDOWS_ACCEPTANCE.md)。

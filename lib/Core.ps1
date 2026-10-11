@@ -8,6 +8,7 @@ function Read-Configuration([string]$Path) {
     foreach ($rule in @(@('Port',1,65535),@('PollSeconds',1,300),@('DebounceMilliseconds',100,5000),@('DisconnectConfirmSeconds',1,30),@('RetrySeconds',1,30),@('FastRetryWindowSeconds',1,60),@('DiagnosticIntervalSeconds',5,3600),@('DiagnosticTimeoutMilliseconds',100,5000),@('SafeFailureThreshold',1,10),@('LogMaxBytes',16384,10485760),@('LogArchives',1,10))) {
         $v = $c.($rule[0]); $n = 0
         if (-not [int]::TryParse([string]$v,[ref]$n) -or $n -lt $rule[1] -or $n -gt $rule[2]) { throw "配置范围错误: $($rule[0])" }
+        $c.($rule[0])=$n
     }
     if ($c.Mode -cnotin @('Strict','Safe') -or $c.Diagnostics -cnotin @('None','Tcp','Http')) { throw '模式配置错误' }
     if ($c.Whitelist -isnot [Array] -or @($c.Whitelist | Where-Object { $_ -isnot [string] -or [string]::IsNullOrEmpty($_) }).Count) { throw '白名单必须是非空 SSID 字符串数组' }
@@ -44,10 +45,15 @@ function Get-Target($Snapshot, $Config, [string]$Health = 'Unknown') {
     if ($items.Count -ne 1 -or [string]::IsNullOrEmpty($items[0].SSID)) { return [pscustomobject]@{ Action='Keep'; Server=''; SSID=''; Guid=''; Gateway=''; Reason='无法可靠识别 SSID' } }
     $n = $items[0]
     $t = [pscustomobject]@{ Action='Keep'; Server=''; SSID=$n.SSID; Guid=$n.Guid; Gateway=$n.Gateway; Reason='' }
+    $matchable=$true; if ($null -ne $n.PSObject.Properties['Matchable']) { $matchable=$n.Matchable }
     foreach ($ssid in $Config.Whitelist) {
-        if ([string]::Equals($ssid,$n.SSID,[StringComparison]::OrdinalIgnoreCase)) { $t.Action='Disable'; $t.Reason='精确匹配代理关闭白名单'; return $t }
+        if ($matchable -and [string]::Equals($ssid,$n.SSID,[StringComparison]::OrdinalIgnoreCase)) { $t.Action='Disable'; $t.Reason='精确匹配代理关闭白名单'; return $t }
     }
-    if (-not $n.Ready -or -not (Test-GatewayIPv4 $n.Gateway)) { $t.Reason='IPv4 网关尚未就绪或路由歧义'; return $t }
+    if (-not $n.Ready -or -not (Test-GatewayIPv4 $n.Gateway)) {
+        $t.Reason='IPv4 网关尚未就绪或路由歧义'
+        if ($null -ne $n.PSObject.Properties['RouteError'] -and $n.RouteError) { $t.Reason += ': '+$n.RouteError }
+        return $t
+    }
     if ($Config.Mode -eq 'Safe' -and $Health -eq 'Unavailable') { $t.Action='Disable'; $t.Reason='Safe: 代理连续检测失败，恢复直连并继续检测'; return $t }
     $t.Action='Enable'; $t.Server=('{0}:{1}' -f $n.Gateway,$Config.Port); $t.Reason='非白名单 Wi-Fi 的当前 IPv4 网关'; return $t
 }
@@ -66,7 +72,8 @@ function Test-TargetMatches($Actual,$Target) {
 
 function Get-StableTarget($State,$Target,[double]$Now,$Config) {
     if ($Target.Action -eq 'Keep') { $State.Key=''; $State.Since=$Now; return $null }
-    $key = @($Target.Action,$Target.SSID,$Target.Guid,$Target.Gateway,$Target.Server) | ConvertTo-Json -Compress
+    $observation=''; if ($null -ne $Target.PSObject.Properties['ObservationKey']) { $observation=$Target.ObservationKey }
+    $key = @($Target.Action,$Target.SSID,$Target.Guid,$Target.Gateway,$Target.Server,$observation) | ConvertTo-Json -Compress
     if ($State.Key -cne $key) { $State.Key=$key; $State.Since=$Now; return $null }
     $delay = $Config.DebounceMilliseconds / 1000.0
     if (-not $Target.SSID) { $delay = $Config.DisconnectConfirmSeconds }
@@ -78,6 +85,56 @@ function Test-RestoreAllowed($Current,$LastApplied,[switch]$Force) {
     if ($Force) { return $true }
     if ($null -eq $LastApplied) { return $false }
     return (($Current | ConvertTo-Json -Depth 8 -Compress) -ceq ($LastApplied | ConvertTo-Json -Depth 8 -Compress))
+}
+
+function Assert-InteractiveIdentity([string]$Sid,[int]$SessionId) {
+    if ($Sid -in @('S-1-5-18','S-1-5-19','S-1-5-20') -or $SessionId -le 0) { throw '必须在普通交互用户会话运行，拒绝 SYSTEM/服务会话的 HKCU' }
+}
+function ConvertTo-RecordTime($Value) {
+    if ($Value -is [DateTimeOffset]) { return $Value }
+    if ($Value -is [DateTime]) { return [DateTimeOffset]::new($Value) }
+    return [DateTimeOffset]::Parse([string]$Value,[Globalization.CultureInfo]::InvariantCulture)
+}
+function Test-RecordField($Record,[string]$Name) {
+    if ($null -eq $Record) { return $false }
+    if ($Record -is [Collections.IDictionary]) { return $Record.Contains($Name) }
+    return $null -ne $Record.PSObject.Properties[$Name]
+}
+function Assert-ManualSnapshot($Snapshot) {
+    foreach ($name in @('ProxyEnable','ProxyServer','ProxyOverride')) {
+        if (-not (Test-RecordField $Snapshot $name)) { throw '原代理备份缺少必要字段，拒绝写入' }
+        $entry=$Snapshot.$name
+        if (-not (Test-RecordField $entry 'Exists') -or $entry.Exists -isnot [bool] -or -not (Test-RecordField $entry 'Kind') -or -not (Test-RecordField $entry 'Value')) { throw '原代理备份结构损坏，拒绝写入' }
+        if ($entry.Exists) {
+            if ($name -eq 'ProxyEnable') {
+                if ($entry.Kind -ne 'DWord' -or ($entry.Value -isnot [int] -and $entry.Value -isnot [long]) -or $entry.Value -notin @(0,1)) { throw '原 ProxyEnable 类型/值不受支持，拒绝写入' }
+            } elseif ($entry.Kind -ne 'String' -or $entry.Value -isnot [string]) { throw '原代理字符串类型不受支持，拒绝写入' }
+        }
+    }
+}
+function Test-RegistryMatchesTarget($Snapshot,$Target) {
+    if ($Target.Action -eq 'Keep') { return $true }
+    $enable=0
+    if ($Snapshot.ProxyEnable.Exists) {
+        if ($Snapshot.ProxyEnable.Kind -ne 'DWord') { return $false }
+        $enable=[int]$Snapshot.ProxyEnable.Value
+    }
+    if ($Target.Action -eq 'Disable') { return $enable -eq 0 }
+    if ($enable -ne 1 -or -not $Snapshot.ProxyServer.Exists -or $Snapshot.ProxyServer.Kind -ne 'String' -or $Snapshot.ProxyServer.Value -cne $Target.Server -or -not $Snapshot.ProxyOverride.Exists -or $Snapshot.ProxyOverride.Kind -ne 'String') { return $false }
+    return @($Snapshot.ProxyOverride.Value -split ';' | Where-Object { [string]::Equals($_.Trim(),'<local>',[StringComparison]::OrdinalIgnoreCase) }).Count -gt 0
+}
+function Update-ProxyHealth($State,[string]$Result,[int]$Threshold) {
+    if ($Result -eq 'Unavailable') {
+        $State.Failures=[Math]::Min($Threshold,$State.Failures+1)
+        if ($State.Failures -ge $Threshold) { $State.Health='Unavailable' }
+        elseif ($State.Health -ne 'Unavailable') { $State.Health='Unknown' }
+    } elseif ($Result -in @('TcpOpen','HttpResponse')) {
+        $State.Failures=0; $State.Health=$Result
+    } else {
+        $State.Failures=0
+        # Unknown does not prove recovery of a service already confirmed unavailable.
+        if ($State.Health -ne 'Unavailable') { $State.Health='Unknown' }
+    }
 }
 
 function Write-JsonAtomic([string]$Path,$Value) {

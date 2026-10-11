@@ -10,6 +10,31 @@
 4. 检查专属任务的触发器、交互用户 SID、有限权限、电池条件、IgnoreNew、无时间限制和重启策略；确认不是 SYSTEM。
 5. `Status.bat` 显示最新心跳和 WatcherRunning=true；日志没有无限重复。用 `Get-NetAdapter` 查询 Wi-Fi InterfaceGuid/ifIndex，用 `Get-NetRoute -AddressFamily IPv4` 和 `ipconfig` 对照同一接口网关；不要分享全部环境变量或认证文件。
 
+## 第二轮新增：只读诊断与回归验收
+
+从新版完整包运行：
+
+```bat
+Diagnose.bat
+Diagnose.bat -Probe -OutputPath "%USERPROFILE%\Desktop\WiFi-diagnostics.json"
+tests\Run-Tests.bat -ResultPath "%USERPROFILE%\Desktop\WiFi-test-results.json"
+```
+
+`Diagnose.bat` 默认只读，不写代理、不创建/启停任务、不修改权限。`-Probe` 才尝试连接当前有效非白名单网关，按配置区分 TCP 和 HTTP。报告检查真实系统版本、用户会话、PowerShell、执行策略、WSH、代理策略、WinINet/HKCU 回读、WLAN 快照、任务归属和心跳。网络目标是当前快照计算值，Safe 的历史失败状态请结合心跳与日志查看。默认报告位置是 `%LOCALAPPDATA%\WiFiProxySwitcher-Control\diagnostics.json`；Warn、Fail 和 NotRun 不能当作通过。
+
+静默诊断用 `wscript.exe //B //Nologo "完整包路径\SilentLauncher.vbs" Diagnose`，报告仍保存到同一默认位置。静默 Status 输出在安装目录 `state\control-status.json`。
+
+重点重测以下本机边界（云端对应回归全部使用明确测试替身）：
+
+1. 重复 Start 至少 20 次，特别留意首次启动是否退出 0 却没有监控；最终只有一个 Watcher，登录任务保持启用。
+2. WLAN 服务恢复/位置权限恢复后，不手工重启工具也能重新读取；日志不能持续卡在同一失效句柄。
+3. A→B、短暂断开、同 SSID DHCP 更新时，对照接口 GUID 与 ipconfig，不能把 A 的网关写给 B；记录驱动/DHCP 实际过渡状态。
+4. Safe 已关闭后制造 HTTP 503 或不完整状态行，Unknown 不能被当成恢复；代理恢复成功后自动启用。Strict 不等待探测成功。
+5. 修改已安装 config，升级后配置保留；修改一个脚本后升级，旧脚本应出现在 user-backups。卸载不能删除这些用户备份或无关文件。
+6. 在测试机受控制造卸载文件锁/任务删除失败，确认失败可见且可重试。必要时从完整包执行 `Uninstall.bat -InstallDir "原安装目录"`。不要在有重要代理配置的生产机器上人为破坏备份。
+7. 在 PowerShell 5.1 原生执行完整测试；检查 BAT/VBS 的中文、空格、`!`、`&`、方括号路径。成对 `%NAME%` 安装路径应被明确拒绝，不得悄悄解析成另一个目录。
+8. 分别观察登录、唤醒、锁屏和异常重启中的窗口行为。WSH 文件存在与静态 Hide 参数不等于已验证零闪烁。
+
 ## 核心验收矩阵
 
 | 编号 | 操作 | 必须观察的结果 |

@@ -5,12 +5,15 @@ $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
 . (Join-Path $root 'lib/Core.ps1')
 . (Join-Path $root 'lib/Windows.ps1')
+. (Join-Path $root 'lib/Lifecycle.ps1')
+. (Join-Path $root 'lib/Monitor.ps1')
 $config=Read-Configuration (Join-Path $root 'config.json')
 $script:results=[Collections.Generic.List[object]]::new()
 function Check([bool]$Condition,[string]$Message='断言失败') { if (-not $Condition) { throw $Message } }
 function Case([string]$Name,[scriptblock]$Body) {
-    try { & $Body; $script:results.Add([pscustomobject]@{ Name=$Name; Passed=$true; Error='' }); Write-Host ('PASS '+$Name) }
-    catch { $script:results.Add([pscustomobject]@{ Name=$Name; Passed=$false; Error=$_.Exception.Message }); Write-Host ('FAIL '+$Name+': '+$_.Exception.Message) }
+    $caseClock=[Diagnostics.Stopwatch]::StartNew()
+    try { & $Body; $script:results.Add([pscustomobject]@{ Name=$Name; Passed=$true; Error=''; DurationMilliseconds=$caseClock.ElapsedMilliseconds }); Write-Host ('PASS '+$Name) }
+    catch { $script:results.Add([pscustomobject]@{ Name=$Name; Passed=$false; Error=$_.Exception.Message; DurationMilliseconds=$caseClock.ElapsedMilliseconds }); Write-Host ('FAIL '+$Name+': '+$_.Exception.Message) }
 }
 function Link([string]$Ssid='Other',[string]$Gateway='10.0.0.1',[long]$Metric=10,[string]$Guid='11111111-1111-1111-1111-111111111111') {
     return [pscustomobject]@{ SSID=$Ssid; Gateway=$Gateway; Metric=$Metric; Guid=$Guid; Ready=(Test-GatewayIPv4 $Gateway) }
@@ -95,7 +98,7 @@ Case '相同状态不重写；本地绕过与已有绕过列表保留' {
 # Inject native WLAN and structured NetTCPIP objects. No Windows API or registry writer is invoked.
 $script:fixture=$null
 function Get-NetAdapter { param([switch]$IncludeHidden,$ErrorAction) if ($script:fixture.Throw) { throw '模拟权限不足' }; $script:fixture.Adapters }
-function Get-NetIPAddress { param($AddressFamily,$ErrorAction) $script:fixture.IPs }
+function Get-NetIPAddress { param($AddressFamily,$ErrorAction) if ($script:fixture.ContainsKey('IPsThrow') -and $script:fixture.IPsThrow) { throw 'NetTCPIP 查询失败' }; $script:fixture.IPs }
 function Get-NetRoute { param($AddressFamily,$PolicyStore,$ErrorAction) $script:fixture.Routes }
 function Get-NetIPInterface { param($AddressFamily,$ErrorAction) $script:fixture.Interfaces }
 function Fixture {
@@ -133,7 +136,7 @@ Case '真实采集逻辑注入：多默认路由成本与同成本歧义' {
 Case '真实采集逻辑注入：无 Wi-Fi、网卡权限失败、虚拟 WLAN 防护' {
     $fake=Fixture; $script:fixture.Links=@(); Check ((Get-NetworkSnapshot $fake).Kind -eq 'Disconnected')
     $fake=Fixture; $script:fixture.Throw=$true; Check ((Get-NetworkSnapshot $fake).Kind -eq 'Unknown')
-    $fake=Fixture; $script:fixture.Adapters[0].HardwareInterface=$false; Check ((Get-NetworkSnapshot $fake).Kind -eq 'Unknown')
+    $fake=Fixture; $script:fixture.Adapters[0].HardwareInterface=$false; Check ((Get-NetworkSnapshot $fake).Kind -eq 'Disconnected')
 }
 Case '恢复冲突保护及显式强制恢复' {
     $before=[pscustomobject]@{ ProxyEnable=[pscustomobject]@{ Exists=$true; Kind='DWord'; Value=0 } }
@@ -189,8 +192,8 @@ Case '任务登录/异常重启/电源/静默启动契约静态检查（不声�
     $vbs=Get-Content -LiteralPath (Join-Path $root 'SilentLauncher.vbs') -Raw
     Check ($vbs.Contains('shell.Run(command, 0, True)') -and $vbs.Contains('WScript.Quit result'))
     $watcher=Get-Content -LiteralPath (Join-Path $root 'ProxyWatcher.ps1') -Raw
-    Check ($watcher.Contains('$native.Wait($wait)'))
-    foreach ($bat in Get-ChildItem -LiteralPath $root -Filter '*.bat') { $text=Get-Content -LiteralPath $bat.FullName -Raw; Check ($text.Contains('DisableDelayedExpansion') -and $text.Contains('"%~dp0Control.ps1"')) }
+    Check ($watcher.Contains('Wait-MonitorSignal $wait'))
+    foreach ($bat in Get-ChildItem -LiteralPath $root -Filter '*.bat') { $text=Get-Content -LiteralPath $bat.FullName -Raw; Check ($text.Contains('DisableDelayedExpansion') -and ($text.Contains('"%~dp0Control.ps1"') -or $text.Contains('"%~dp0Diagnose.ps1"'))) }
 }
 Case 'UTF-8 BOM/中文空格路径与原子状态文件/日志轮转' {
     $temp=Join-Path ([IO.Path]::GetTempPath()) ('WiFi 测试 '+[Guid]::NewGuid().ToString('N')); [IO.Directory]::CreateDirectory($temp) | Out-Null
@@ -213,6 +216,7 @@ Case '配置错误被拒绝，不进行系统写入' {
         try { Read-Configuration $temp | Out-Null } catch { $rejected=$true }; Check $rejected
     } finally { if (Test-Path -LiteralPath $temp) { Remove-Item -LiteralPath $temp -Force } }
 }
+. (Join-Path $PSScriptRoot 'Round2.Tests.ps1')
 $failed=@($script:results | Where-Object { -not $_.Passed }).Count
 $report=[pscustomobject]@{ Time=[DateTimeOffset]::Now.ToString('o'); Platform=[Environment]::OSVersion.Platform.ToString(); PowerShell=$PSVersionTable.PSVersion.ToString(); Total=$script:results.Count; Passed=$script:results.Count-$failed; Failed=$failed; Results=$script:results.ToArray(); RealWindowsIntegration='NOT RUN by this simulation suite' }
 if ($ResultPath) { Write-JsonAtomic ([IO.Path]::GetFullPath($ResultPath)) $report }
