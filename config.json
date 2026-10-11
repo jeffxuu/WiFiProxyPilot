@@ -1,0 +1,18 @@
+{
+  "Whitelist": ["MC-Office", "Meituan"],
+  "Port": 7890,
+  "Mode": "Strict",
+  "PollSeconds": 5,
+  "DebounceMilliseconds": 400,
+  "DisconnectConfirmSeconds": 2,
+  "RetrySeconds": 1,
+  "FastRetryWindowSeconds": 15,
+  "PreferredInterfaceGuid": "",
+  "Diagnostics": "Tcp",
+  "DiagnosticIntervalSeconds": 60,
+  "DiagnosticTimeoutMilliseconds": 1200,
+  "HttpProbeUrl": "",
+  "SafeFailureThreshold": 2,
+  "LogMaxBytes": 1048576,
+  "LogArchives": 3
+}

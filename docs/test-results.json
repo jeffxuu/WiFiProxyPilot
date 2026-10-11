@@ -1,0 +1,241 @@
+﻿{
+  "Time": "2026-10-11T22:15:39.5701201+00:00",
+  "Platform": "Unix",
+  "PowerShell": "7.4.6",
+  "Total": 46,
+  "Passed": 46,
+  "Failed": 0,
+  "Results": [
+    {
+      "Name": "白名单精确匹配 MC-Office",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "白名单精确匹配 Meituan",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "白名单精确匹配 mc-office",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "白名单精确匹配 MEITUAN",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "白名单精确匹配 MC-OFFICE",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "白名单精确匹配 meituan",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "非白名单 MC-Office-Guest",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "非白名单 MC-Office-5G",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "非白名单 Meituan-Guest",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "非白名单 Other",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "非白名单  MC-Office",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "非白名单 MC-Office ",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "普通 Wi-Fi A→B 更新网关，即使代理已开启",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "普通→白名单→普通",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "确认断开与 SSID 权限失败区分",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "拒绝无效 IPv4 网关 []",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "拒绝无效 IPv4 网关 [::1]",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "拒绝无效 IPv4 网关 [fe80::1%11]",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "拒绝无效 IPv4 网关 [0.0.0.0]",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "拒绝无效 IPv4 网关 [169.254.1.1]",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "拒绝无效 IPv4 网关 [127.0.0.1]",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "拒绝无效 IPv4 网关 [255.255.255.255]",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "拒绝无效 IPv4 网关 [224.0.0.1]",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "拒绝无效 IPv4 网关 [10.0.0.999]",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "拒绝无效 IPv4 网关 [1.2.3]",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "拒绝无效 IPv4 网关 [010.0.0.1]",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "拒绝无效 IPv4 网关 [10.0.0.1:7890]",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "DHCP 网关延迟及同一 SSID 网关变化",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "多无线接口成本优先、同成本拒绝、缺失路由拒绝",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Strict 不因端口失败改变规则；Safe 显式关闭",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "防抖与快速切换，最终状态只使用 B 网关",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "短暂断开不写入；权限失败中断确认；确认断开关闭",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "相同状态不重写；本地绕过与已有绕过列表保留",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "真实采集逻辑注入：VPN/以太网/虚拟接口不污染 Wi-Fi 网关",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "真实采集逻辑注入：自己的 IP、过期路由、IPv6 被排除",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "真实采集逻辑注入：多默认路由成本与同成本歧义",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "真实采集逻辑注入：无 Wi-Fi、网卡权限失败、虚拟 WLAN 防护",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "恢复冲突保护及显式强制恢复",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "实际 TCP 诊断：开放端口与连接拒绝",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "实际 HTTP 诊断：成功、认证要求、非 HTTP 与目标失败",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "所有 PowerShell 文件语法解析及 PS 5.1 常见不兼容语法检查",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "C# 编译、Windows x64 原生结构布局",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "单实例锁跨进程排他（使用测试命名锁，不启动真实监控）",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "任务登录/异常重启/电源/静默启动契约静态检查（不声称实机通过）",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "UTF-8 BOM/中文空格路径与原子状态文件/日志轮转",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "配置错误被拒绝，不进行系统写入",
+      "Passed": true,
+      "Error": ""
+    }
+  ],
+  "RealWindowsIntegration": "NOT RUN by this simulation suite"
+}
