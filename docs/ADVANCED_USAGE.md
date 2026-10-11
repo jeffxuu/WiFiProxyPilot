@@ -6,11 +6,11 @@
 
 默认规则：`MC-Office` / `Meituan` 完整名称按 OrdinalIgnoreCase 匹配时关闭；其他 Wi-Fi 使用该接口 IPv4 默认网关和端口 `7890`，绕过列表保留现有条目并加入 `<local>`；确认断网关闭。SSID/路由读取失败时保持现状并重试。关闭时不清空代理地址或绕过列表。
 
-**验证边界：云端 Linux 的模拟与静态检查已通过；尚未在真实 Windows 11 / PowerShell 5.1 验证 WLAN、注册表、任务或设置 UI。请先完成 [本机验收](docs/WINDOWS_ACCEPTANCE.md)。** 网关本身不保证有代理服务，Strict 模式可能使没有代理的网络无法上网。
+**验证边界：云端 Linux 的模拟与静态检查已通过；尚未在真实 Windows 11 / PowerShell 5.1 验证 WLAN、注册表、任务或设置 UI。请先完成 [本机验收](WINDOWS_ACCEPTANCE.md)。** 网关本身不保证有代理服务，Strict 模式可能使没有代理的网络无法上网。
 
-本项目已完成第二轮源码修复与压力测试，Bug 清单、15 项审查对应关系和验证边界见 [第二轮审查记录](docs/REVIEW_ROUND2.md)。
+本项目已完成第二轮源码修复与压力测试，Bug 清单、15 项审查对应关系和验证边界见 [第二轮审查记录](REVIEW_ROUND2.md)。
 
-**安装报“同名任务的所有者/权限不匹配”**：已修复旧版把任务短用户名、CIM 数字枚举误判为不匹配的问题。从最新完整包重新运行 `Install.bat` 即可重试，保留现有配置与最初备份；不需要先删任务、删安装目录或改用管理员账户。具体原因、保护边界和诊断见 [任务身份校验修复](docs/TASK_OWNERSHIP_FIX.md)。截图中的旧通用错误无法单独证明实际触发字段；若新版仍拒绝，请按诊断中的具体字段处理。
+**安装报“同名任务的所有者/权限不匹配”**：已修复旧版把任务短用户名、CIM 数字枚举误判为不匹配的问题。从最新完整包重新运行 `Install.bat` 即可重试，保留现有配置与最初备份；不需要先删任务、删安装目录或改用管理员账户。具体原因、保护边界和诊断见 [任务身份校验修复](TASK_OWNERSHIP_FIX.md)。截图中的旧通用错误无法单独证明实际触发字段；若新版仍拒绝，请按诊断中的具体字段处理。
 
 ## 快速安装
 
@@ -143,4 +143,4 @@ WiFi-test/
   user-backups/            更新时生成：被用户修改过的旧脚本
 ```
 
-架构与官方资料见 [设计说明](docs/ARCHITECTURE.md)，云端证据见 [测试结果](docs/TEST_RESULTS.md)，20 个场景的实机操作见 [Windows 验收](docs/WINDOWS_ACCEPTANCE.md)。
+架构与官方资料见 [设计说明](ARCHITECTURE.md)，云端证据见 [测试结果](TEST_RESULTS.md)，20 个场景的实机操作见 [Windows 验收](WINDOWS_ACCEPTANCE.md)。

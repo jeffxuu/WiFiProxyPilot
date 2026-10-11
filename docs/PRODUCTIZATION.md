@@ -41,6 +41,7 @@ WiFiProxySwitcher.exe /uninstall
 开发端需要 .NET SDK 8.0.425（Windows 用户运行 EXE 不需要 SDK 或 .NET 安装）。
 
 ```powershell
+New-Item -ItemType Directory -Force release/generated | Out-Null
 powershell.exe -NoProfile -File tests/Run-Tests.ps1 -ResultPath release/generated/engine-results.json
 pwsh -NoProfile -File release/Build.ps1
 ```
