@@ -3,7 +3,7 @@ $script:Pointer='Software\WiFiProxySwitcher'
 $script:TaskPrefix='WiFiProxySwitcher-'
 
 function Get-ProductFiles {
-    return @('Control.ps1','ProxyWatcher.ps1','Diagnose.ps1','SilentLauncher.vbs','config.json','README.md','Install.bat','Start.bat','Stop.bat','Uninstall.bat','RestoreProxy.bat','Status.bat','Diagnose.bat','lib/Core.ps1','lib/Windows.ps1','lib/Native.cs','lib/Monitor.ps1','lib/Lifecycle.ps1','tests/Run-Tests.ps1','tests/Run-Tests.bat','tests/ProbeServer.cs','tests/Round2.Tests.ps1','docs/ARCHITECTURE.md','docs/WINDOWS_ACCEPTANCE.md','docs/TEST_RESULTS.md','docs/REVIEW_ROUND2.md','docs/test-results.json')
+    return @('Control.ps1','ProxyWatcher.ps1','Diagnose.ps1','SilentLauncher.vbs','config.json','README.md','Install.bat','Start.bat','Stop.bat','Uninstall.bat','RestoreProxy.bat','Status.bat','Diagnose.bat','lib/Core.ps1','lib/Windows.ps1','lib/Native.cs','lib/Monitor.ps1','lib/Lifecycle.ps1','tests/Run-Tests.ps1','tests/Run-Tests.bat','tests/ProbeServer.cs','tests/Round2.Tests.ps1','tests/TaskOwnership.Tests.ps1','docs/ARCHITECTURE.md','docs/WINDOWS_ACCEPTANCE.md','docs/TEST_RESULTS.md','docs/REVIEW_ROUND2.md','docs/TASK_OWNERSHIP_FIX.md','docs/test-results.json')
 }
 function Assert-InstallManifest($Manifest) {
     $allowed=Get-ProductFiles; $seen=@{}
@@ -17,8 +17,57 @@ function Assert-InstallManifest($Manifest) {
 }
 function Get-UserName { return [Security.Principal.WindowsIdentity]::GetCurrent().Name }
 function Get-WscriptPath { return Join-Path $env:SystemRoot 'System32/wscript.exe' }
+function Get-TaskField($Object,[string]$Name) {
+    if ($null -eq $Object) { return $null }
+    $p=$Object.PSObject.Properties[$Name]
+    if ($null -ne $p) { return $p.Value }
+    return $null
+}
+function Resolve-TaskUserSid([string]$UserId) {
+    if ([string]::IsNullOrWhiteSpace($UserId)) { throw '任务没有 UserId，不能确认账户归属' }
+    try {
+        if ($UserId.StartsWith('S-',[StringComparison]::OrdinalIgnoreCase)) { return [Security.Principal.SecurityIdentifier]::new($UserId).Value }
+        # Task Scheduler may return a local short name, DOMAIN\name, or another account alias.
+        # Resolve with Windows; comparing display names or dropping the domain is unsafe.
+        return [Security.Principal.NTAccount]::new($UserId).Translate([Security.Principal.SecurityIdentifier]).Value
+    } catch { throw ('无法将任务账户解析为 SID；UserId=['+$UserId+']；'+$_.Exception.Message) }
+}
+function Test-TaskPrincipalValue($Value,[string]$Name,[int]$Number) {
+    if ($null -eq $Value) { return $false }
+    # MSFT_TaskPrincipal: Interactive=3, Limited=0. CIM readback can be numeric;
+    # ScheduledTasks type adapters may instead return the corresponding enum names.
+    if ($Value.GetType().IsEnum) { return [Convert]::ToInt64($Value) -eq $Number }
+    $text=[string]$Value
+    return [string]::Equals($text,$Name,[StringComparison]::OrdinalIgnoreCase) -or [string]::Equals($text,$Number.ToString([Globalization.CultureInfo]::InvariantCulture),[StringComparison]::Ordinal)
+}
+function Get-TaskOwnershipDetails($Task,$Manifest) {
+    $principal=Get-TaskField $Task 'Principal'
+    $logon=Get-TaskField $principal 'LogonType'; $level=Get-TaskField $principal 'RunLevel'
+    $logonType='null'; $levelType='null'
+    if ($null -ne $logon) { $logonType=$logon.GetType().FullName }
+    if ($null -ne $level) { $levelType=$level.GetType().FullName }
+    $userId=[string](Get-TaskField $principal 'UserId'); $resolvedSid=$null; $resolutionError=$null
+    try { $resolvedSid=Resolve-TaskUserSid $userId } catch { $resolutionError=$_.Exception.Message }
+    return [pscustomobject]@{
+        TaskName=$Manifest.TaskName; ExpectedOwnerSid=$Manifest.OwnerSid
+        UserId=$userId; ResolvedOwnerSid=$resolvedSid; AccountResolutionError=$resolutionError
+        GroupId=[string](Get-TaskField $principal 'GroupId')
+        LogonType=[string]$logon; LogonTypeClrType=$logonType
+        RunLevel=[string]$level; RunLevelClrType=$levelType
+        DescriptionMatches=([string](Get-TaskField $Task 'Description') -ceq ('WiFiProxySwitcher-v1|'+$Manifest.OwnerSid+'|'+$Manifest.Root))
+    }
+}
 function Assert-OwnedTaskDefinition($Task,$Manifest) {
-    if ($Task.Description -cne ('WiFiProxySwitcher-v1|'+$Manifest.OwnerSid+'|'+$Manifest.Root) -or $Task.Principal.UserId -notin @($Manifest.OwnerSid,(Get-UserName)) -or $Task.Principal.LogonType -ne 'Interactive' -or $Task.Principal.RunLevel -ne 'Limited') { throw '同名任务的所有者/权限不匹配，拒绝修改' }
+    $details=Get-TaskOwnershipDetails $Task $Manifest
+    $principal=Get-TaskField $Task 'Principal'
+    $issues=[Collections.Generic.List[string]]::new()
+    if (-not $details.DescriptionMatches) { $issues.Add('任务描述/安装目录不匹配') }
+    if ($details.AccountResolutionError) { $issues.Add($details.AccountResolutionError) }
+    elseif (-not [string]::Equals($details.ResolvedOwnerSid,$Manifest.OwnerSid,[StringComparison]::OrdinalIgnoreCase)) { $issues.Add('运行账户 SID 不匹配') }
+    if ($details.GroupId) { $issues.Add('不允许使用用户组作为运行主体') }
+    if (-not (Test-TaskPrincipalValue (Get-TaskField $principal 'LogonType') 'Interactive' 3)) { $issues.Add('登录方式必须是 Interactive (3)') }
+    if (-not (Test-TaskPrincipalValue (Get-TaskField $principal 'RunLevel') 'Limited' 0)) { $issues.Add('运行级别必须是 Limited (0)') }
+    if ($issues.Count) { throw ('同名任务的所有者/权限不匹配，拒绝修改：'+($issues -join '；')+'；任务字段='+($details | ConvertTo-Json -Compress)) }
     $actions=@($Task.Actions)
     $exe=Get-WscriptPath
     $legacy='//B //Nologo "'+(Join-Path $Manifest.Root 'SilentLauncher.vbs')+'" Watch'
@@ -173,10 +222,16 @@ function Read-Install([string]$Root) {
     Assert-InstallManifest $m
     return $m
 }
-function Get-OwnedTask($Manifest) {
+function Get-ProductTask($Manifest) {
+    # Read-only candidate lookup. Callers that mutate/start/stop MUST use Get-OwnedTask.
     $tasks=@(Get-ScheduledTask -ErrorAction Stop | Where-Object { $_.TaskPath -eq '\' -and $_.TaskName -ceq $Manifest.TaskName })
     if ($tasks.Count -eq 0) { return $null }
-    $t=$tasks[0]
+    if ($tasks.Count -ne 1) { throw '同名任务查询结果不唯一，拒绝操作' }
+    return $tasks[0]
+}
+function Get-OwnedTask($Manifest) {
+    $t=Get-ProductTask $Manifest
+    if ($null -eq $t) { return $null }
     Assert-OwnedTaskDefinition $t $Manifest
     return $t
 }

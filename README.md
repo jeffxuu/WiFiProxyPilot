@@ -8,6 +8,8 @@
 
 本项目已完成第二轮源码修复与压力测试，Bug 清单、15 项审查对应关系和验证边界见 [第二轮审查记录](docs/REVIEW_ROUND2.md)。
 
+**安装报“同名任务的所有者/权限不匹配”**：已修复旧版把任务短用户名、CIM 数字枚举误判为不匹配的问题。从最新完整包重新运行 `Install.bat` 即可重试，保留现有配置与最初备份；不需要先删任务、删安装目录或改用管理员账户。具体原因、保护边界和诊断见 [任务身份校验修复](docs/TASK_OWNERSHIP_FIX.md)。截图中的旧通用错误无法单独证明实际触发字段；若新版仍拒绝，请按诊断中的具体字段处理。
+
 ## 快速安装
 
 1. 解压完整项目到本地目录，支持中文、空格和 `!`。如果 Windows 将下载文件标记为来自 Internet，确认来源和内容后在 ZIP 属性中解除锁定，再解压；组织策略禁止脚本/WSH 时联系管理员，不关闭安全防护。
@@ -129,10 +131,11 @@ WiFi-test/
   lib/Native.cs            WLAN/WinINet PInvoke 与事件
   lib/Monitor.ps1          实际监控循环，可注入系统边界测试
   lib/Lifecycle.ps1        实际安装/启动/恢复/卸载函数
-  tests/Run-Tests.ps1 / Run-Tests.bat / Round2.Tests.ps1 / ProbeServer.cs
+  tests/Run-Tests.ps1 / Run-Tests.bat / Round2.Tests.ps1 / TaskOwnership.Tests.ps1 / ProbeServer.cs
   tools/cloud-setup.sh
   docs/ARCHITECTURE.md / WINDOWS_ACCEPTANCE.md / TEST_RESULTS.md
   docs/REVIEW_ROUND2.md / test-results.json
+  docs/TASK_OWNERSHIP_FIX.md  安装时任务身份校验误判的修复与重试
   state/                  安装时生成：备份、清单、心跳、停止标志
   logs/                   安装时生成：有界 JSONL 日志
   user-backups/            更新时生成：被用户修改过的旧脚本

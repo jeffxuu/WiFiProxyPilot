@@ -24,6 +24,10 @@ tests\Run-Tests.bat -ResultPath "%USERPROFILE%\Desktop\WiFi-test-results.json"
 
 静默诊断用 `wscript.exe //B //Nologo "完整包路径\SilentLauncher.vbs" Diagnose`，报告仍保存到同一默认位置。静默 Status 输出在安装目录 `state\control-status.json`。
 
+### 安装报任务所有者/权限不匹配时
+
+从最新完整包运行 `Install.bat`，不删除旧任务或 `state`，不切换到其他账户。新版按 Windows 解析后的 SID 判断账户，接受 `Interactive (3)`、`Limited (0)` 的 CIM 数字或枚举名称形式。安装成功后 `Status.bat` 应有 `WatcherRunning=true`，并检查 UI 的实际代理结果。若仍失败，从**新包**运行 `Diagnose.bat`；报告的“任务原始身份字段”会在归属检查前记录原始 UserId、解析 SID、LogonType/RunLevel 值与 CLR 类型，即使后续校验失败也保留。核对任务运行账户 SID 等于当前用户、没有 GroupId、没有 Highest/服务登录、动作与安装路径正确。参见 [修复与恢复说明](TASK_OWNERSHIP_FIX.md)。真实 Windows 名称到 SID 的解析与任务注册后回读仍须此处验收，云端替身无法替代。
+
 重点重测以下本机边界（云端对应回归全部使用明确测试替身）：
 
 1. 重复 Start 至少 20 次，特别留意首次启动是否退出 0 却没有监控；最终只有一个 Watcher，登录任务保持启用。

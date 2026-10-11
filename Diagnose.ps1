@@ -51,6 +51,11 @@ try {
         [pscustomobject]@{Mode=$script:diagConfig.Mode;Port=$script:diagConfig.Port;PollSeconds=$script:diagConfig.PollSeconds;Diagnostics=$script:diagConfig.Diagnostics}
     }
     if ($root) {
+        Run-Check '任务原始身份字段（只读，归属校验前采集）' {
+            $m=Read-Install $root; $candidate=Get-ProductTask $m
+            if ($null -eq $candidate) { throw '安装存在，但自启动任务缺失' }
+            Get-TaskOwnershipDetails $candidate $m
+        }
         Run-Check '安装记录/任务归属/心跳' {
             $m=Read-Install $root; $t=Get-OwnedTask $m
             if ($null -eq $t) { throw '安装存在，但自启动任务缺失' }

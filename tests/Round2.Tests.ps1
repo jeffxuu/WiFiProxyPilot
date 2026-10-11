@@ -343,6 +343,7 @@ Case 'R2 停止时任务权限失败仍先发停止标志' {
 }
 Case 'R2 任务动作被篡改，即使名称/描述相同也不能启动或终止' {
     function Get-UserName { 'qa-user' }
+    function Resolve-TaskUserSid([string]$UserId) { if ($UserId -ceq 'qa-user') { return 'qa-user' }; throw '未知测试账户' }
     function Get-WscriptPath { 'C:\Windows\System32\wscript.exe' }
     $m=[pscustomobject]@{OwnerSid='qa-user';Root='/tmp';TaskName='qa'}
     $t=[pscustomobject]@{Description='WiFiProxySwitcher-v1|qa-user|/tmp';Principal=[pscustomobject]@{UserId='qa-user';LogonType='Interactive';RunLevel='Limited'};Actions=@([pscustomobject]@{Execute=(Get-WscriptPath);Arguments='//B //Nologo ".\SilentLauncher.vbs" Watch';WorkingDirectory='/tmp'})}
