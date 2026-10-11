@@ -48,6 +48,10 @@ function Install-DesktopFiles([string]$Root,[string]$SourceExe) {
     if (-not @($files | Where-Object {$_.Path -ceq $rel}).Count) { $files += [pscustomobject]@{Path=$rel;Hash=$hash} }
     $m=[pscustomobject]@{Product='WiFiProxySwitcher-Desktop-v3';OwnerSid=(Get-UserSid);Root=$Root;Current=$rel;Files=$files}
     Write-JsonAtomic (Join-Path $Root 'app/desktop.json') $m
+    Register-DesktopEntries $Root $dest
+    return $m
+}
+function Register-DesktopEntries([string]$Root,[string]$dest) {
     $key=[Microsoft.Win32.Registry]::CurrentUser.CreateSubKey($script:DesktopUninstallKey)
     try {
         foreach ($pair in @(@('DisplayName','Wi-Fi 智能代理切换'),@('DisplayVersion','3.0.0'),@('Publisher','WiFiProxySwitcher'),@('OwnerSid',(Get-UserSid)),@('InstallLocation',$Root),@('DisplayIcon',$dest),@('UninstallString',('"'+$dest+'" /uninstall')), @('QuietUninstallString',('"'+$dest+'" /uninstall /quiet')))) { $key.SetValue($pair[0],$pair[1],[Microsoft.Win32.RegistryValueKind]::String) }
@@ -57,7 +61,6 @@ function Install-DesktopFiles([string]$Root,[string]$SourceExe) {
     $shell=New-Object -ComObject WScript.Shell
     try { $link=$shell.CreateShortcut($shortcut); try { $link.TargetPath=$dest; $link.WorkingDirectory=[IO.Path]::GetDirectoryName($dest); $link.Description='Wi-Fi 智能代理切换'; $link.Save() } finally { [Runtime.InteropServices.Marshal]::FinalReleaseComObject($link) | Out-Null } }
     finally { [Runtime.InteropServices.Marshal]::FinalReleaseComObject($shell) | Out-Null }
-    return $m
 }
 function Remove-DesktopFiles($Manifest) {
     if ($null -eq $Manifest) { return }

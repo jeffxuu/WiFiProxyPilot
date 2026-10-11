@@ -172,7 +172,16 @@ Case '所有 PowerShell 文件语法解析及 PS 5.1 常见不兼容语法检查
     }
 }
 Case 'C# 编译、Windows x64 原生结构布局' {
-    if (-not ('WiFiProxy.Native' -as [type])) { Add-Type -Path (Join-Path $root 'lib/Native.cs') -CompilerOptions '/langversion:5' }
+    if (-not ('WiFiProxy.Native' -as [type])) {
+        if ((Get-Command Add-Type).Parameters.ContainsKey('CompilerOptions')) {
+            Add-Type -Path (Join-Path $root 'lib/Native.cs') -CompilerOptions '/langversion:5'
+        } else {
+            $compiler=[CodeDom.Compiler.CompilerParameters]::new()
+            $compiler.GenerateInMemory=$true; $compiler.CompilerOptions='/langversion:5'
+            $compiler.ReferencedAssemblies.AddRange(@('System.dll','System.Core.dll'))
+            Add-Type -Path (Join-Path $root 'lib/Native.cs') -CompilerParameters $compiler
+        }
+    }
     foreach ($pair in @(@('InterfaceInfo',532),@('Connection',604),@('Option',16),@('OptionList',32))) {
         $type=[WiFiProxy.Native].GetNestedType($pair[0],[Reflection.BindingFlags]::NonPublic)
         Check ([Runtime.InteropServices.Marshal]::SizeOf([type]$type) -eq $pair[1]) ('ABI 布局错误: '+$pair[0])

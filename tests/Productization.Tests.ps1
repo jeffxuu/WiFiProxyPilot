@@ -57,3 +57,34 @@ Case 'V3 桌面安装采用版本哈希路径，不覆盖正在运行的旧 EXE'
     $control=Get-Content -LiteralPath (Join-Path $root 'Control.ps1') -Raw
     Check ($control.Contains('$result.Code') -and $control.Contains('RestoreConflict') -and $control.Contains('-LogonType Interactive -RunLevel Limited'))
 }
+Case 'V3 实际桌面文件安装/重复安装/更新：中文空格路径与原 EXE 保留' {
+    New-LifeFixture; $script:desktopRegistrations=0
+    function Get-UserSid { 'S-1-5-21-1-2-3-1001' }
+    function Assert-DesktopRegistration($Root,$Manifest) {}
+    function Register-DesktopEntries($Root,$dest) { $script:desktopRegistrations++; Check (Test-Path -LiteralPath $dest) }
+    try {
+        $source=Join-Path $script:life.Base '安装 程序.exe'; [IO.File]::WriteAllText($source,'MZ mocked executable payload')
+        $first=Install-DesktopFiles $script:life.Root $source
+        $second=Install-DesktopFiles $script:life.Root $source
+        Check ($first.Current -ceq $second.Current -and $second.Files.Count -eq 1 -and $script:desktopRegistrations -eq 2)
+        $oldHash=(Get-FileHash -LiteralPath (Join-Path $script:life.Root $first.Current)).Hash
+        [IO.File]::WriteAllText($source,'MZ updated mocked executable payload')
+        $third=Install-DesktopFiles $script:life.Root $source
+        Check ($third.Current -cne $first.Current -and $third.Files.Count -eq 2)
+        Check ((Get-FileHash -LiteralPath (Join-Path $script:life.Root $first.Current)).Hash -ceq $oldHash)
+        Check ((Read-DesktopInstall $script:life.Root).Current -ceq $third.Current)
+    } finally { Remove-Item -LiteralPath $script:life.Base -Recurse -Force }
+}
+Case 'V3 桌面同版本目标被占用或文件改动时拒绝覆盖' {
+    New-LifeFixture
+    function Get-UserSid { 'S-1-5-21-1-2-3-1001' }
+    function Assert-DesktopRegistration($Root,$Manifest) {}
+    function Register-DesktopEntries($Root,$dest) {}
+    try {
+        $source=Join-Path $script:life.Base 'source.exe'; [IO.File]::WriteAllText($source,'MZ mocked executable payload')
+        $first=Install-DesktopFiles $script:life.Root $source
+        $target=Join-Path $script:life.Root $first.Current; [IO.File]::WriteAllText($target,'user modified')
+        $caught=$false; try { Install-DesktopFiles $script:life.Root $source | Out-Null } catch { $caught=$true }
+        Check ($caught -and [IO.File]::ReadAllText($target) -ceq 'user modified')
+    } finally { Remove-Item -LiteralPath $script:life.Base -Recurse -Force }
+}

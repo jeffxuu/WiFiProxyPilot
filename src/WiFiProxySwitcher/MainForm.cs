@@ -23,7 +23,7 @@ internal sealed class MainForm : Form
         for (int i = 0; i < labels.Length; i++)
         {
             layout.Controls.Add(new Label { Text = labels[i], AutoSize = true, Margin = new Padding(0, 7, 0, 7) }, 0, i + 1);
-            values[i] = new Label { Text = "读取中…", AutoSize = true, Dock = DockStyle.Fill, Margin = new Padding(0, 7, 0, 7) }; layout.Controls.Add(values[i], 1, i + 1);
+            values[i] = new Label { Text = "读取中…", UseMnemonic = false, AutoSize = true, Dock = DockStyle.Fill, Margin = new Padding(0, 7, 0, 7) }; layout.Controls.Add(values[i], 1, i + 1);
         }
         AddButton("安装 / 修复", "install"); AddButton("启动监控", "start"); AddButton("停止监控", "stop"); AddButton("立即检测", "check"); AddButton("恢复代理", "restore"); AddButton("卸载", "uninstall");
         layout.Controls.Add(buttons, 0, 7); layout.SetColumnSpan(buttons, 2);

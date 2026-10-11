@@ -15,7 +15,9 @@ internal static class StatusReader
         string heartbeatPath = Path.Combine(root, "state", "status.json");
         if (File.Exists(heartbeatPath))
         {
-            using var doc = JsonDocument.Parse(File.ReadAllText(heartbeatPath)); var h = doc.RootElement;
+            // Do not block the engine's atomic File.Replace while the window reads a heartbeat.
+            using var heartbeat = new FileStream(heartbeatPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            using var doc = JsonDocument.Parse(heartbeat); var h = doc.RootElement;
             string Text(string k) => h.TryGetProperty(k, out var v) ? v.ToString() : "";
             ssid = Text("SSID"); if (ssid.Length == 0) ssid = "未连接或暂不可识别";
             gateway = Text("Gateway"); iface = Text("InterfaceGuid"); updated = Text("Time");
