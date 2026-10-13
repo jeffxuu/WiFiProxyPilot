@@ -1,0 +1,8 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+<SolidColorBrush x:Key="Canvas" Color="#252629"/><SolidColorBrush x:Key="Sidebar" Color="#2D2F34"/><SolidColorBrush x:Key="Toolbar" Color="#2A2C30"/><SolidColorBrush x:Key="Card" Color="#33353A"/>
+<SolidColorBrush x:Key="Ink" Color="#F0F0F2"/><SolidColorBrush x:Key="Muted" Color="#B2B3BC"/><SolidColorBrush x:Key="Stroke" Color="#45474E"/><SolidColorBrush x:Key="WindowStroke" Color="#575961"/>
+<SolidColorBrush x:Key="Accent" Color="#0A84FF"/><SolidColorBrush x:Key="Success" Color="#3AC47B"/><SolidColorBrush x:Key="Soft" Color="#3A3C42"/><SolidColorBrush x:Key="Selection" Color="#494C54"/><SolidColorBrush x:Key="Hover" Color="#3B3E45"/>
+<SolidColorBrush x:Key="Purple" Color="#A080E1"/><SolidColorBrush x:Key="IconGray" Color="#717A87"/><SolidColorBrush x:Key="ButtonSurface" Color="#45474D"/><SolidColorBrush x:Key="InputSurface" Color="#2B2D32"/><SolidColorBrush x:Key="ToggleOff" Color="#5E616A"/><SolidColorBrush x:Key="Thumb" Color="#F4F4F6"/>
+<SolidColorBrush x:Key="CloseRed" Color="#FF6059"/><SolidColorBrush x:Key="MinimizeYellow" Color="#FFBD2E"/><SolidColorBrush x:Key="MaximizeGreen" Color="#28C840"/><SolidColorBrush x:Key="TrafficGlyph" Color="#59322D"/><SolidColorBrush x:Key="TrafficStroke" Color="#33000000"/>
+<SolidColorBrush x:Key="NavIconSurface" Color="#424750"/><SolidColorBrush x:Key="NavGlyph" Color="#C7D0DD"/><SolidColorBrush x:Key="SeparatorBrush" Color="#45474D"/>
+</ResourceDictionary>

@@ -1,0 +1,59 @@
+﻿{
+    "Time":  "2026-10-14T01:44:37.7276596+08:00",
+    "Platform":  "Win32NT",
+    "PowerShell":  "5.1.26100.8115",
+    "Total":  8,
+    "Passed":  8,
+    "Failed":  0,
+    "Results":  [
+                    {
+                        "Name":  "所有 PowerShell 文件语法解析及 PS 5.1 常见不兼容语法检查",
+                        "Passed":  true,
+                        "Error":  "",
+                        "DurationMilliseconds":  29755
+                    },
+                    {
+                        "Name":  "V31 升级保留自定义名单、登录偏好与原始代理备份（模拟安装）",
+                        "Passed":  true,
+                        "Error":  "",
+                        "DurationMilliseconds":  12165
+                    },
+                    {
+                        "Name":  "V32 schema migration preserves user rules and old pause intent without adding rules",
+                        "Passed":  true,
+                        "Error":  "",
+                        "DurationMilliseconds":  103
+                    },
+                    {
+                        "Name":  "V32 paused and direct cycles report observed network/proxy without changing either",
+                        "Passed":  true,
+                        "Error":  "",
+                        "DurationMilliseconds":  364
+                    },
+                    {
+                        "Name":  "V32 resume and fresh evaluation discard the old network and diagnostic stability",
+                        "Passed":  true,
+                        "Error":  "",
+                        "DurationMilliseconds":  173
+                    },
+                    {
+                        "Name":  "V32 a configuration/intent change at the apply gate cancels the stale decision",
+                        "Passed":  true,
+                        "Error":  "",
+                        "DurationMilliseconds":  77
+                    },
+                    {
+                        "Name":  "V32 Direct persists intent before one manual-proxy disable and keeps original backup",
+                        "Passed":  true,
+                        "Error":  "",
+                        "DurationMilliseconds":  149
+                    },
+                    {
+                        "Name":  "V32 updated disk payload cannot authorize an old or unconfirmed resident watcher",
+                        "Passed":  true,
+                        "Error":  "",
+                        "DurationMilliseconds":  1637
+                    }
+                ],
+    "RealWindowsIntegration":  "NOT RUN by this simulation suite"
+}

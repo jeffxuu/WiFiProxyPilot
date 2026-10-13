@@ -1,0 +1,36 @@
+{
+  "Total": 5,
+  "Failed": 0,
+  "Results": [
+    {
+      "Name": "Homepage observes automatic intent, proxy and TCP separately",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Window maximize, restore and keyboard focus use native WPF semantics",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Actual light homepage capture with new resource templates",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Automatic switch cannot manufacture success in an isolated preview",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Actual tray menu capture uses the isolated application",
+      "Passed": true,
+      "Error": ""
+    }
+  ],
+  "ProxyWritten": false,
+  "TaskWritten": false,
+  "Network": "Synthetic fixture; not real-network acceptance",
+  "UI": "Actual WPF at current desktop DPI",
+  "ManualWindowDragSnapAndDpi": "NOT RUN"
+}
