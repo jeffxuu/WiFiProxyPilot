@@ -1,4 +1,4 @@
-name: Windows v3.1 candidate build
+name: Legacy v3.1 candidate build
 on:
   push:
     branches: [feature/ui-tray-performance-v3.1]

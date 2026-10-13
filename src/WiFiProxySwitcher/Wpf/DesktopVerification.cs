@@ -123,6 +123,16 @@ internal static class DesktopVerification
                     await host.Window.ViewModel.Perform("automatic");
                     Assert(host.Window.ViewModel.AutomaticEnabled && host.Window.ViewModel.Status?.Intent == ManagementIntent.Monitoring && host.Window.ViewModel.Message.Contains("隔离"));
                 });
+                await Check("Actual tray menu capture uses the isolated application", async () =>
+                {
+                    var menu = host.Tray.ContextMenuStrip ?? throw new InvalidOperationException("Tray menu missing");
+                    menu.Show(new System.Drawing.Point(20, 20));
+                    await Task.Delay(120);
+                    using var bitmap = new System.Drawing.Bitmap(menu.Width, menu.Height);
+                    menu.DrawToBitmap(bitmap, new System.Drawing.Rectangle(0, 0, menu.Width, menu.Height));
+                    bitmap.Save(Path.Combine(directory, "tray-preview.png"), System.Drawing.Imaging.ImageFormat.Png);
+                    menu.Close();
+                });
             }
             catch (Exception e) { failed++; results.Add(new { Name="Home review initialization", Passed=false, Error=e.ToString() }); }
             finally

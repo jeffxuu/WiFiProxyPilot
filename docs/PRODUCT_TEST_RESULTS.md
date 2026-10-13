@@ -21,6 +21,6 @@
 
 构建命令：`bash tools/cloud-setup.sh`；`pwsh -NoProfile -File release/Build.ps1 -Dotnet /workspace/tooling/dotnet/dotnet`（Windows 开发机省略 Dotnet 参数）。发布前必须检查 Windows CI 的 SourceCommit 和各步 outcome；workflow 失败不会创建 Release。
 
-Windows 实际证据：提交 `9a64506366207110b7b1885403e633df789f6429` 的 [成功工作流](https://github.com/jeffxuu/WiFi-test/actions/runs/38185726770)，回传于开发分支 `release/ci-latest.json`，界面截图 `release/ci-ui.png` 已人工查看无裁切。发布 tag 会重新运行同一门禁，并记录最终产物元数据。
+Windows 实际证据：提交 `9a64506366207110b7b1885403e633df789f6429` 的 [成功工作流](https://github.com/jeffxuu/WiFiProxyPilot/actions/runs/38185726770)，回传于开发分支 `release/ci-latest.json`，界面截图 `release/ci-ui.png` 已人工查看无裁切。发布 tag 会重新运行同一门禁，并记录最终产物元数据。
 
 首次 Windows CI 实测 99/101：发现 PowerShell 5.1 的 Add-Type 不支持 CompilerOptions，后续依赖类型也因此加载失败。已为 5.1 使用 CompilerParameters，并保留 /langversion:5 和全部断言；修复后 Windows 103 项全部通过。新增两项使用真实临时文件验证桌面 EXE 重复安装、版本更新不覆盖旧文件及修改文件保护。

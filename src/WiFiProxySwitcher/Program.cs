@@ -58,7 +58,7 @@ internal static class Program
             }
             Console.WriteLine(JsonSerializer.Serialize(r));
             if (options.WorkerPid != 0) File.WriteAllText(Path.Combine(AppController.ControlDir, "uninstall-result.json"), JsonSerializer.Serialize(r));
-            if (!options.Quiet) MessageBox.Show(r.Succeeded ? "操作完成。" : r.Message, "Wi-Fi 智能代理切换", MessageBoxButtons.OK, r.Succeeded ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
+            if (!options.Quiet) MessageBox.Show(r.Succeeded ? "操作完成。" : r.Message, "WiFi Proxy Pilot", MessageBoxButtons.OK, r.Succeeded ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
             return r.Succeeded ? 0 : r.Code == "RestoreConflict" ? 20 : 1;
         }
         catch (Exception ex)
@@ -73,7 +73,7 @@ internal static class Program
             }
             catch (Exception logError) { Console.Error.WriteLine("日志写入失败: " + logError.Message); }
             Console.Error.WriteLine(ex.Message);
-            if (!quiet) MessageBox.Show(ex.Message, "无法完成操作", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            if (!quiet) MessageBox.Show(ex.Message, "WiFi Proxy Pilot", MessageBoxButtons.OK, MessageBoxIcon.Error);
             return 1;
         }
     }

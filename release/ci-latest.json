@@ -1,7 +1,7 @@
-﻿{
+{
     "SourceCommit":  "85bfbd05577c7a4d4206af1265429f34e032f544",
     "Ref":  "refs/heads/feature/exe-productization",
-    "RunUrl":  "https://github.com/jeffxuu/WiFi-test/actions/runs/38186065422",
+    "RunUrl":  "https://github.com/jeffxuu/WiFiProxyPilot/actions/runs/38186065422",
     "Engine":  "success",
     "Build":  "success",
     "Smoke":  "success",

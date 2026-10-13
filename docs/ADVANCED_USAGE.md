@@ -1,18 +1,20 @@
-> v3 普通用户请使用 EXE；本页原有 BAT 命令均从安装目录 tools 文件夹运行。根目录的网络引擎和 config.json 继续保留。
+> 本页包含当前 v3.2 的配置约定，以及为排障保留的 v3.0 脚本包操作细节。普通用户先阅读 [产品首页](../README.zh-CN.md)。v3.2 仍在开发；不要把旧版安装流程、历史测试结果或脚本命令等同于候选版已完成实机验收。BAT 命令从安装目录的 `tools` 文件夹运行。
 
-# Windows 11 Wi-Fi 智能代理切换工具
+# WiFi Proxy Pilot：高级使用与历史脚本说明
 
 根据真实 Wi-Fi SSID 和该物理接口的当前 IPv4 默认路由，控制**当前用户的 Windows 手动代理**。运行端仅依赖 Windows 11 x64 自带的 Windows PowerShell 5.1、WLAN API、WinINet、任务计划程序与 Windows Script Host，不需要 Python、Node.js 或第三方组件。
 
-默认规则：`MC-Office` / `Meituan` 完整名称按 OrdinalIgnoreCase 匹配时关闭；其他 Wi-Fi 使用该接口 IPv4 默认网关和端口 `7890`，绕过列表保留现有条目并加入 `<local>`；确认断网关闭。SSID/路由读取失败时保持现状并重试。关闭时不清空代理地址或绕过列表。
+当前 v3.2 的新安装默认为空免代理名单、`ManagementIntent=Paused`、`SetupComplete=false`，不会预置个人或企业 Wi-Fi。打开界面本身不会开启自动管理。用户启用自动切换后，自定义免代理规则按完整名称 `OrdinalIgnoreCase` 匹配时关闭手动代理；其他 Wi-Fi 使用该接口 IPv4 默认网关和指定端口（默认 `7890`），绕过列表保留现有条目并加入 `<local>`。所有规则均可编辑或删除，删除后不会自动重新加入。确认断网关闭；SSID/路由读取失败时保持现状并重试。关闭手动代理不会清空代理地址或绕过列表。
 
-**验证边界：云端 Linux 的模拟与静态检查已通过；尚未在真实 Windows 11 / PowerShell 5.1 验证 WLAN、注册表、任务或设置 UI。请先完成 [本机验收](WINDOWS_ACCEPTANCE.md)。** 网关本身不保证有代理服务，Strict 模式可能使没有代理的网络无法上网。
+**验证边界：历史 Linux 检查、旧版本 Windows 验收及 v3.2 隔离回归属于不同范围。当前候选版真实网络、安装升级、登录/休眠及卸载验收以 [v3.2 测试记录](TEST_RESULTS_V3_2.md) 和 [发布清单](RELEASE_CHECKLIST.md) 为准。** 网关本身不保证有代理服务；Strict 模式可能使没有代理的网络无法上网。本程序不提供代理服务器或 VPN。
 
-本项目已完成第二轮源码修复与压力测试，Bug 清单、15 项审查对应关系和验证边界见 [第二轮审查记录](REVIEW_ROUND2.md)。
+下文保留的第二轮源码修复与压力测试说明针对历史脚本版本；Bug 清单、15 项审查对应关系和当时的验证边界见 [第二轮审查记录](REVIEW_ROUND2.md)，不能作为 v3.2 发行验收结果。
 
 **安装报“同名任务的所有者/权限不匹配”**：已修复旧版把任务短用户名、CIM 数字枚举误判为不匹配的问题。从最新完整包重新运行 `Install.bat` 即可重试，保留现有配置与最初备份；不需要先删任务、删安装目录或改用管理员账户。具体原因、保护边界和诊断见 [任务身份校验修复](TASK_OWNERSHIP_FIX.md)。截图中的旧通用错误无法单独证明实际触发字段；若新版仍拒绝，请按诊断中的具体字段处理。
 
-## 快速安装
+## 历史脚本包安装入口
+
+本节记录旧脚本包的安装命令与保护边界。已有安装的候选版升级应使用 EXE 的“设置 → 高级操作 → 修复安装 / 升级”，保留用户规则与最初备份；不要先卸载。首次启用前检查当前 v3.2 的暂停意图及配置向导。安装/启动进程与允许代理写入是不同操作。
 
 1. 解压完整项目到本地目录，支持中文、空格和 `!`。如果 Windows 将下载文件标记为来自 Internet，确认来源和内容后在 ZIP 属性中解除锁定，再解压；组织策略禁止脚本/WSH 时联系管理员，不关闭安全防护。
 2. 使用自己的普通交互用户双击 `Install.bat`，不要以 SYSTEM 或另一管理员账户安装。默认复制到 `%LOCALAPPDATA%\WiFiProxySwitcher`。BAT 安装控制台可见，正常监控完全由隐藏的 VBS 入口启动。
@@ -53,21 +55,22 @@ wscript.exe //B //Nologo "D:\项目 中文\SilentLauncher.vbs" Uninstall
 
 VBS 白名单参数不支持任意命令拼接。需要自定义目录/强制恢复等选项时使用 `Control.ps1 -Quiet` 搭配 `powershell.exe -WindowStyle Hidden`，或可见 BAT 入口。静默失败写入 `%LOCALAPPDATA%\WiFiProxySwitcher-Control\control-errors.log`（256 KiB，1 个归档）；静默 Status 将完整状态写入 `state\control-status.json`，监控心跳仍在 `state\status.json`。`SilentLauncher.vbs Diagnose` 将只读报告写入 `%LOCALAPPDATA%\WiFiProxySwitcher-Control\diagnostics.json`。批处理自动化设置 `WIFI_NO_PAUSE=1` 可关闭结尾 pause；退出码保留底层 PowerShell 的成功/失败。
 
-## 自启动与运行行为
+## 后台引擎与历史脚本启动行为
 
 任务名称为 `WiFiProxySwitcher-<当前用户 SID>`，根任务目录，仅当前用户 `Interactive` / `Limited`，不保存密码、不使用 SYSTEM、不请求不必要的提权。登录触发，启动目录为安装目录；电池允许、不因切换电池停止、无执行时限、`IgnoreNew` 防重复、异常退出间隔 1 分钟最多重启 999 次。VBS 等待真实监控进程退出并传递退出码，任务不会把正常启动后还在运行的脚本误认为完成。
 
 WLAN ACM 通知和 .NET 网络地址变化事件唤醒检测，默认 5 秒轮询兜底覆盖 DHCP 与休眠唤醒。普通变化需两次一致快照且至少 400 ms；断开确认 2 秒。启动立即读取，路由采集前后核对 WLAN SSID 原始身份与事件 Generation，写入前再读一次防止混合快照和过期事件。DHCP/读取失败前 15 秒按 1 秒快速重试，随后按轮询间隔继续；事件可提前唤醒。Strict 完成稳定目标处理后才诊断。长时间暂停会使旧稳定状态和诊断失效；等待按最多 500 ms 小段检查停止请求。实际延迟还包括 NetTCPIP 查询时间与诊断限时，需实机测量。锁屏可运行，注销后任务终止，下次登录重启；跨进程用户命名互斥锁保证每用户单监控实例。
 
-`Stop` 为持久停止（下次登录也不启动），`Start` 恢复登录自启。监控运行期间会在下次检测纠正其他软件或手工对**手动代理**的修改，这是本工具的管理行为。想保留手工设置，先停止监控。
+历史脚本命令 `Stop` 为持久停止（下次登录也不启动），`Start` 恢复登录自启；这与 v3.2 界面的“暂停”不同。界面暂停只停止自动代理写入并保留当前值，“直连”还会关闭手动代理；这些意图会持久保存。后台监控登录启动与托盘登录启动为独立设置。启用自动管理时，引擎会在下次检测纠正其他软件或手工对**手动代理**的修改；想保留手工设置，先暂停管理。
 
 ## 配置
 
-安装后修改安装目录 `config.json`，执行 Stop / Start 使其生效。源目录配置仅用于首次安装。
+源目录 `config.json` 仅用于首次安装，已有安装不得用仓库默认配置覆盖用户文件。v3.1/v3.2 后台支持验证后的配置热重载：界面保存时检查版本冲突并原子写入；“已保存”表示文件写入成功，“已应用”还要求同一配置 revision 的新鲜、兼容后台心跳及稳定网络。后台未应用时继续显示等待，不制造成功状态。无效配置保留上一份有效设置并给出错误。详情见 [配置热重载](CONFIG_HOT_RELOAD.md) 与 [迁移说明](CONFIG_MIGRATION.md)。历史旧引擎若不支持此协议，应先按升级流程更新，不能因磁盘脚本已更新就认为驻留旧进程具备新能力。
 
 | 字段 | 默认值 / 含义 |
 |---|---|
-| `Whitelist` | `MC-Office`, `Meituan`，精确、无大小写区别；空数组允许 |
+| `Whitelist` | 默认空数组；用户自定义免代理网络，完整名称匹配、忽略大小写，所有规则可编辑/删除 |
+| `SchemaVersion`, `ManagementIntent`, `SetupComplete` | `2` / `Paused` / `false`；新安装先配置，再由用户启用管理 |
 | `Port`, `Mode` | `7890`, `Strict`；可选 `Safe` |
 | `PollSeconds` | 5 秒，允许 1–300 |
 | `DebounceMilliseconds` | 400，允许 100–5000 |
@@ -115,12 +118,12 @@ Uninstall.bat -DeleteLogs
 - 原生 API 和注册表变更不是跨程序事务；本工具验证回读、异常记录并重试，不能阻止其他代理管理程序同时写入。建议仅保留一个管理工具。
 - PowerShell 进程内存、事件延迟、24 小时稳定性、用户任务创建权限和无窗口体验尚需 Windows 实测。没有承诺基于未测数据的资源指标。
 
-## 测试与文件结构
+## 历史测试说明与脚本包结构
 
 在 Windows 5.1：双击 `tests\Run-Tests.bat`。测试只操作模拟对象、测试互斥锁、临时文件及 loopback TCP 服务，不触碰真实代理。Linux 云端：`bash tools/cloud-setup.sh`，工具下载固定 PowerShell 7.4.6 官方包并验证 SHA256，仅供开发验证。Linux 无法替代 Windows PowerShell 5.1 实机兼容测试。
 
 ```text
-WiFi-test/
+WiFiProxyPilot/
   Install.bat / Start.bat / Stop.bat / Uninstall.bat
   RestoreProxy.bat / Status.bat
   Control.ps1              安装、任务管理、恢复、卸载入口

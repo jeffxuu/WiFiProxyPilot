@@ -1,119 +1,176 @@
-# WiFi Proxy Pilot
+<div align="center">
+  <h1>WiFi Proxy Pilot</h1>
+  <h3>Smart Wi-Fi Proxy Switching for Windows</h3>
+  <p>A lightweight, modern Windows utility that automatically switches your system proxy based on Wi-Fi SSIDs, gateway addresses and user-defined rules.</p>
 
-[简体中文](README.zh-CN.md)
+  ![Windows 11](https://img.shields.io/badge/Windows-11-0078D4)
+  ![.NET 8](https://img.shields.io/badge/.NET-8-512BD4)
+  ![WPF](https://img.shields.io/badge/UI-WPF-6557E8)
+  [![Release](https://img.shields.io/github/v/release/jeffxuu/WiFiProxyPilot)](https://github.com/jeffxuu/WiFiProxyPilot/releases)
+  [![MIT License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
+  [![GitHub Stars](https://img.shields.io/github/stars/jeffxuu/WiFiProxyPilot?style=flat)](https://github.com/jeffxuu/WiFiProxyPilot/stargazers)
+</div>
 
-A Windows 11 Wi-Fi proxy manager that switches the Windows **manual proxy** according to your own Wi-Fi rules. Use a phone hotspot's IPv4 gateway as the proxy address, keep selected networks direct, and manage everything from the system tray.
+**[English](README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Español](README.es.md) · [Français](README.fr.md) · [Deutsch](README.de.md) · [Português (Brasil)](README.pt-BR.md) · [Русский](README.ru.md) · [Tiếng Việt](README.vi.md)**
 
-**It does not include a VPN or a proxy server.** A proxy must already be running at the chosen gateway and port. Enabling the Windows proxy does not prove that the proxy or internet connection works.
+**Your Wi-Fi changes. Your proxy follows.** Use a gateway-hosted proxy on ordinary Wi-Fi networks and connect directly on networks you choose. Manage it from a modern WPF desktop or the system tray.
 
-v3.2.0-beta.1 is in development. The first real WPF interface is being prepared for visual review; release preparation is still a draft. Real Wi-Fi, proxy writes, installation upgrades, logon, sleep/resume and uninstall acceptance require authorized Windows testing. See [test results](docs/TEST_RESULTS_V3_2.md) and [release checklist](docs/RELEASE_CHECKLIST.md).
+> **v3.2.0-beta.1 is in development.** Screenshots show the actual WPF app with simulated network data. Real network, login/sleep, installation and uninstall acceptance remains separate from isolated regression tests. The current UI is Simplified Chinese; these README translations do not imply UI localization. The repository is Private pending the owner's publication decision, so external badges and Star History may be unavailable.
 
-![Dashboard running in an isolated test environment](docs/images/dashboard.png)
+## Screenshots
 
-*Actual application screenshot with simulated network data. It is not evidence of a real network test.*
+![Overview — actual WPF app, simulated network](docs/images/dashboard.png)
 
-## Features
+| Wi-Fi Rules | Settings |
+| --- | --- |
+| ![Wi-Fi Rules preview](docs/images/rules.png) | ![Settings preview](docs/images/settings.png) |
 
-- Uses the current physical Wi-Fi interface's IPv4 default gateway and your proxy port, with fresh confirmation after a network change.
-- Lets you add, edit and remove **every** direct-network rule. New users start with an empty list; matching uses the complete name, ignoring case.
-- Separates automatic monitoring, pause, direct mode, current Windows proxy and TCP/HTTP diagnosis.
-- Uses a WPF interface with a restrained macOS-inspired hierarchy adapted to Windows, tray access, single-instance activation and an independent background watcher.
-- Saves configuration atomically, detects editing conflicts and confirms background application separately from saving.
-- Preserves the original manual-proxy backup and protects changes made later by you or another application.
+<details>
+<summary>Dark theme preview</summary>
 
-The interface currently uses Simplified Chinese. English documentation is provided here; a full English interface is not advertised as implemented. Detailed implementation and verification status are maintained in the linked documents.
+![Dark theme — earlier WPF overview layout](docs/images/dashboard-dark.png)
 
-## Download and requirements
+</details>
 
-Candidate builds and draft releases are prepared in the existing [WiFi-test repository](https://github.com/jeffxuu/WiFi-test/releases) and [Windows build workflows](https://github.com/jeffxuu/WiFi-test/actions). The repository is currently private; these links require repository access. A v3.1 draft is an older build, **not** the v3.2 candidate. Use the build and SHA256 identified in the eventual candidate release notes; no v3.2 public download is claimed yet.
+![System tray menu — actual application, isolated preview](docs/images/tray.png)
 
-The Windows x64 self-contained EXE retains the compatibility filename `WiFiProxySwitcher.exe`. No separate .NET, Python, Node.js or WebView2 installation is required. Windows 11, Windows PowerShell 5.1, WLAN service and Windows Script Host are required. Organization policies may restrict proxy or scheduled-task changes. Builds without Authenticode signing are clearly identified; do not bypass Windows security features.
+All images are real application captures from an isolated fixture, **not evidence of a live proxy connection**. The dark capture uses an earlier overview layout. The tray menu is captured from the same application in an isolated fixture.
 
-Download the EXE or ZIP plus its `SHA256.txt`, then verify the executable:
+## What it does
+
+- Recognizes the connected Wi-Fi and matches your complete SSID rules, ignoring case.
+- Resolves the current physical Wi-Fi interface's **IPv4 default gateway**, then applies your configured proxy port (default `7890`).
+- Uses direct-connection rules for selected networks. New installations start with **no built-in Wi-Fi rules**; every rule can be edited or deleted.
+- Offers a macOS-inspired WPF interface, light/dark themes and a system tray with an independent background watcher.
+- Separates automatic management, Windows manual-proxy state and optional TCP/HTTP diagnostics. An enabled proxy is not proof of internet access.
+- Saves configuration atomically and distinguishes “saved” from “applied by the watcher.”
+- Retains the original manual-proxy backup and protects later changes made by you or another application.
+- Provides source code under MIT for inspection and contribution.
+
+## Download and installation
+
+**[Download Latest Release — legacy v3.0.0](https://github.com/jeffxuu/WiFiProxyPilot/releases/latest)** · **[Browse Releases](https://github.com/jeffxuu/WiFiProxyPilot/releases)** · **[v3.2 build artifacts](https://github.com/jeffxuu/WiFiProxyPilot/actions/workflows/build.yml)**
+
+The published v3.0.0 is the earlier interface and behavior; it does **not** contain the v3.2 WPF interface shown above. v3.1.0 is a Draft Prerelease. There is currently no published v3.2 release. Build artifacts require repository access and expire; drafts are not public downloads. Review the version, release notes and SHA256 before installing. The Release badge tracks published releases, not the development version.
+
+The intended platform is **Windows 11 x64**, with Windows PowerShell 5.1, WLAN service and Windows Script Host. The self-contained EXE does not require separately installing .NET, Python, Node.js or WebView2. No broader Windows compatibility is claimed. Organization policies may restrict WLAN information, proxy settings or scheduled tasks. Current builds are unsigned; keep Windows security protections enabled.
+
+Download the EXE or extract the ZIP and compare its hash with the accompanying `SHA256.txt`:
 
 ```powershell
 Get-FileHash .\WiFiProxySwitcher.exe -Algorithm SHA256
 ```
 
-## First setup
+The executable remains `WiFiProxySwitcher.exe` for upgrade compatibility. Run it as your normal interactive Windows user. Opening the v3.2 window alone does not enable proxy management. Do not install for your everyday account using a different administrator's account.
 
-1. Open the EXE. Opening the interface alone does not change your proxy.
-2. Read the explanation: the tool controls Windows manual proxy settings; it supplies no proxy service.
-3. Choose the gateway port, normally `7890`. The gateway may have no proxy service at all.
-4. Add Wi-Fi names that should use direct connections, or leave the list empty. Add the current network when its name is reliably available.
-5. Review the Windows settings that will change and explicitly enable automatic switching.
+## Quick Start
 
-Installation is for the current interactive user. Do not use a different administrator account to install for your usual account. Existing users should open the candidate and use Settings → advanced operations → repair/upgrade; keep the installed configuration and original backup. See [configuration migration](docs/CONFIG_MIGRATION.md).
+1. **Download** a build and check its version/hash.
+2. **Configure** the port of an existing proxy on your Wi-Fi gateway, and add the Wi-Fi names that should use a direct connection.
+3. **Enable Auto Switching** after reviewing the settings the app will manage.
 
-## Wi-Fi rules
+**The gateway must actually run a proxy service. WiFi Proxy Pilot supplies neither a proxy server nor VPN nodes.** When using an Android hotspot, obtain its current IPv4 gateway automatically, set the proxy app's listening port and ensure that app accepts connections from the tethered Windows device. A hotspot by itself is not a proxy.
 
-![Wi-Fi rules editor running with simulated data](docs/images/rules.png)
+## How it works
 
-*Actual rules editor screenshot in an isolated test environment.*
+```text
+Wi-Fi connected → Read a stable SSID/interface snapshot → Match user rules
+  ├─ Direct rule matches → Disable Windows manual proxy
+  └─ No direct rule     → Resolve current Wi-Fi IPv4 gateway
+                          → Apply gateway + configured port
+```
 
-Use **Wi-Fi 规则** to add a network, edit its name, delete it or add the current connection. Legal spaces are preserved. Names must be 1–32 UTF-8 bytes and contain no control characters; a similar name or suffix does not match.
+The watcher verifies the current network before applying a change so an old gateway is not reused after switching Wi-Fi. Unknown SSID, missing routes or ambiguous interfaces retain the existing settings with an explanation and retry. A confirmed disconnection disables the manual proxy. PAC and automatic detection retain their existing values and can still affect application routing.
 
-**保存并应用** saves the draft with conflict protection. “Saved” means the file was written; “rules applied” appears only after a compatible watcher acknowledges the same revision and confirms a stable current network. Otherwise the interface shows “saved, waiting for background application”. Cancel discards unsaved edits. An empty list is valid and no hidden network rules are reinserted.
+## Wi-Fi rule management
 
-## Tray and recovery actions
+Open **Wi-Fi Rules** to add, rename, delete or add the current reliably detected network. Empty lists are supported. Matching uses the whole name with `OrdinalIgnoreCase`, not a prefix or substring. Legal spaces are preserved; names must be 1–32 UTF-8 bytes and contain no control characters.
 
-| Action | Result |
+**Save and Apply** checks concurrent edits and writes atomically. “Saved” confirms the file write; “Applied” requires a fresh, compatible watcher heartbeat with the same revision and a stable network. Otherwise the app shows that background application is pending. Cancel discards unsaved edits. Deleted rules are not silently restored.
+
+## System tray and proxy modes
+
+| Action | Effect |
 | --- | --- |
-| 开启自动切换 / Enable automatic switching | The watcher follows your rules after confirming the current network. |
-| 暂停自动切换 / Pause | Stops automatic proxy writes and retains the current proxy; it may remain active. |
-| 恢复直连 / Direct mode | Pauses automatic management and turns off only Windows manual proxy. |
-| 立即检测 / Check now | Requests fresh network collection and stable confirmation. |
-| Close X | Hides the window by default; the tray and watcher continue. |
-| 退出界面 / Exit interface | Exits GUI/tray; the independent watcher continues. |
-| 恢复安装前配置 / Restore original | Stops automatic management and safely restores the original manual settings. |
+| Enable automatic switching | Re-sample the network and manage the manual proxy using your rules |
+| Pause | Stop automatic proxy writes; the current proxy setting stays in place |
+| Direct connection | Pause management and disable only the Windows manual proxy |
+| Check now | Request a fresh network observation and stable evaluation |
+| Close the window | Hide to tray by default; the watcher continues |
+| Exit the interface | Close the GUI/tray; the independent watcher continues |
+| Restore original configuration | Stop management and safely restore the original backup, with conflict checks |
 
-Pause/direct choices persist across interface restarts, logon and reboot. Watcher and tray logon settings are independent. PAC and automatic detection settings are preserved; they can still influence an application's actual route.
+Pause and direct intent persist across GUI restarts and logins. Watcher login startup and tray startup are separate settings.
 
-## Proxy policy and diagnosis
+**Strict** applies the selected rule and reports probe failures without silently disabling the proxy. **Safe** can fall back to direct after the configured consecutive diagnostic failures, so some traffic may bypass the proxy. Unknown diagnostics do not count as recovery. TCP diagnosis proves only that a port can be connected to; HTTP diagnosis makes an actual proxy request to your configured HTTP test URL. Neither guarantees that every site or application works.
 
-**Strict** applies the configured rule after you enable it. Failed proxy diagnosis is displayed but does not silently turn the proxy off. **Safe** uses the configured diagnosis and consecutive-failure threshold to fall back to direct mode; some traffic may then bypass the proxy. Unknown results are not treated as successful recovery.
+## Recovery and uninstall
 
-TCP reachability means only that the port accepts a connection. HTTP validation requires an actual request through the proxy and an explicit HTTP diagnostic URL. Neither is a general guarantee of internet access. Missing Wi-Fi, uncertain SSID, unavailable IPv4 gateway or ambiguous interfaces retain the existing protective behavior and surface a reason.
+The original manual-proxy backup is `state/proxy-before-install.json` under the installation directory. Upgrades preserve it and your rules; they do not create a new “original” backup. Configuration changes retain the previous valid file. Keep these local files private.
 
-## Backup, restore and uninstall
+For an existing installation, open the candidate EXE and use **Settings → Advanced operations → Repair installation / Upgrade**. Do not uninstall first or overwrite your configuration with repository defaults. See [configuration migration](docs/CONFIG_MIGRATION.md).
 
-The original manual-proxy snapshot is stored in the installed `state/proxy-before-install.json`; upgrades retain it. Editing configuration keeps an atomic previous copy. Do not replace these files with a repository default or share them without removing private information.
+Use **Restore original configuration**, **Settings → Advanced operations → Uninstall**, or Windows Installed Apps. Restore/uninstall compares current settings with the original and last settings written by this tool. Later external edits cause a conflict instead of being overwritten. Force restore is an explicit choice; uninstall can also keep the current proxy. Removal is limited to owned tasks/startup records and verified product files, protecting unrelated or user-modified files. Direct mode keeps the original backup.
 
-Direct mode keeps the original backup. Original restore and uninstall compare the current manual settings with the original/last settings written by this tool. If another application or you changed them later, automatic restore is refused and the conflict is explained. Force restore is an explicit user choice; uninstall can instead keep the current proxy.
+## Security & Privacy
 
-Use Settings → advanced operations → uninstall, or the Windows installed-apps entry. Only owned tasks, startup records and hash-verified product files are removed. Unrelated files and user-modified files are protected. See [migration and restore details](docs/CONFIG_MIGRATION.md).
+- SSIDs, proxy configuration, state and logs are handled locally; no cloud account or analytics service is required.
+- The app does not collect Wi-Fi passwords. Optional diagnostics connect to the selected proxy and, in HTTP mode, the URL you configure.
+- The original proxy backup is retained. Installation/task operations honor the current user's identity and permission checks.
+- The app manages the current user's Windows **manual proxy**; it does not change DNS, routes or firewall rules.
+- Logs and diagnostics can include network identifiers. Review and redact them before sharing.
 
-## Frequently asked questions
+Historical commits and old release material contain legacy network examples and machine paths. Keeping the repository Private does not remove them. Publication requires the owner's separate review of [the public-repository audit](docs/PUBLIC_REPOSITORY_AUDIT.md). Report security issues through [SECURITY.md](SECURITY.md).
 
-**Why is my network unavailable even when the proxy is enabled?** The service may be stopped, the port may be wrong or the gateway may not run a proxy. Check the separate diagnosis, pause management or choose direct mode.
+## FAQ
 
-**Does closing the window stop the proxy?** X hides the interface by default. Exiting the tray does not stop the independent watcher or restore proxy settings.
+**How can I automatically switch proxy by Wi-Fi on Windows 11?** Configure the gateway proxy port, add direct-connection SSIDs and enable automatic switching. The watcher evaluates stable Wi-Fi changes and applies Windows manual-proxy settings for the current user.
 
-**Can I delete every network rule?** Yes. Every rule belongs to you and an empty list is supported.
+**How do I use an Android hotspot gateway as a Windows proxy?** Run a separate proxy service on the phone, allow tethered devices to reach it and set its listening port in Pilot. The gateway is discovered from the current Wi-Fi interface. Check the service and firewall on the phone if it is unreachable.
 
-**Why is the status unavailable?** WLAN/location permissions, policies, a stopped watcher or an old heartbeat may prevent reliable reads. The interface shows the reason and last successful observation instead of claiming current data.
+**Does WiFi Proxy Pilot include a VPN?** No. It manages Windows manual-proxy configuration; you supply the service. Applications using their own proxy or ignoring Windows settings may behave differently.
 
-**Does it affect every application?** It manages the current user's Windows manual proxy. Applications using their own proxy, ignoring Windows proxy, or using PAC may behave differently.
+**Why is the proxy enabled but the internet unavailable?** The gateway may not host a proxy, the port/service may be wrong or stopped, or the destination may fail. Check TCP/HTTP diagnosis separately. Pause retains the setting; Direct disables the manual proxy. PAC may still influence traffic.
 
-**What is verified?** [Test results](docs/TEST_RESULTS_V3_2.md) separate simulated/isolated checks from real Windows acceptance. [Performance](docs/PERFORMANCE_V3_2.md) records actual samples and limits; target times are not invented measurements.
+**How do I bypass proxy on specific Wi-Fi networks?** Add their complete SSIDs to Wi-Fi Rules and save/apply. Every rule is editable and deletable; an empty list is valid.
 
-## Architecture and development
+**How do I restore Windows proxy settings?** Choose Restore original configuration and review any external-change conflict. Direct only disables the manual proxy; it does not restore the original server and bypass list.
 
-WPF/MVVM presentation calls application services. Existing PowerShell control/lifecycle code, native WLAN/WinINet support, atomic configuration store, payload SHA256 cache, task ownership checks and restore safeguards remain the engine. UI and engine versions are reported separately. Installation identities intentionally retain `WiFiProxySwitcher` compatibility.
+**Does the app keep running after closing the window?** Yes. X hides to tray by default. Exiting the GUI also leaves the independent watcher running; use Pause or Restore to change background management.
 
-Build with the pinned .NET 8 SDK and Windows PowerShell:
+**Why can't the current network be read?** WLAN/location permissions, organization policies, missing routes, a stopped watcher or an old heartbeat may prevent reliable status. The UI shows the reason and last valid observation instead of treating old data as current.
+
+**What has been tested?** See [v3.2 test results](docs/TEST_RESULTS_V3_2.md), [performance evidence](docs/PERFORMANCE_V3_2.md) and [release checklist](docs/RELEASE_CHECKLIST.md). Isolated checks are not real network or installation acceptance, and target performance is not a measured result.
+
+## Star History
+
+If WiFi Proxy Pilot makes your workflow easier, consider giving the project a star.
+
+<a href="https://star-history.com/#jeffxuu/WiFiProxyPilot&Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=jeffxuu/WiFiProxyPilot&type=Date&theme=dark" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=jeffxuu/WiFiProxyPilot&type=Date" />
+    <img alt="WiFi Proxy Pilot Star History" src="https://api.star-history.com/svg?repos=jeffxuu/WiFiProxyPilot&type=Date" />
+  </picture>
+</a>
+
+The official live SVG uses this repository's actual GitHub data. While the repository is Private, the external service cannot show its history to everyone. It will need rechecking after publication; no stars or growth are fabricated, and an empty history is not replaced with invented data. See the [official embedding guide](https://www.star-history.com/blog/how-to-use-github-star-history/).
+
+## Contributing and roadmap
+
+Issues and pull requests are welcome from users with repository access. Describe the build, expected/actual behavior and redacted evidence. See [CONTRIBUTING.md](CONTRIBUTING.md) for the Windows build and review process. Do not include personal configurations, proxy backups, credentials or unredacted logs.
+
+Planned work: real upgrade/login/sleep/uninstall acceptance, remaining WPF accessibility and layout checks, startup performance improvements, and UI localization. These are plans, not shipped features; automatic updating is not implemented.
+
+Build with the SDK in `global.json` and Windows PowerShell:
 
 ```powershell
 powershell.exe -NoProfile -File tests\Run-Tests.ps1 -ResultPath artifacts\engine-results.json
 powershell.exe -NoProfile -File release\Build.ps1
 ```
 
-`release/Build.ps1` packages the verified payload, runs C# checks and publishes the Windows executable. It does not install or alter the host proxy. See [contributing](CONTRIBUTING.md), [product requirements](docs/PRODUCT_REQUIREMENTS.md) and [state model](docs/INTERACTION_STATE_MACHINE.md).
+The build creates a self-contained `win-x64` EXE without installing it or changing the host proxy. The existing `WiFiProxySwitcher` installation, registry, mutex and task identities remain for compatibility.
 
-## Security, privacy and license
+## License
 
-The application has no analytics service. Network names, proxy state, configuration and logs are local. Optional diagnosis connects to the chosen proxy and, in HTTP mode, the configured test URL. Logs and diagnostics can contain network identifiers; review them before sharing.
-
-Older history contains legacy network examples and requires a separate privacy decision before becoming public. See [public audit](docs/PUBLIC_REPOSITORY_AUDIT.md) and [security reporting](SECURITY.md). Repository renaming/publication does not happen automatically.
-
-Project source is licensed under [MIT](LICENSE). Third-party materials keep their own notices and applicable font restrictions; see [third-party notices](docs/THIRD_PARTY_NOTICES.md).
+Project source is licensed under [MIT](LICENSE). Third-party materials retain their own terms; see [third-party notices](docs/THIRD_PARTY_NOTICES.md). System fonts are used from Windows and are not redistributed.

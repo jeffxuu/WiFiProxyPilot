@@ -1,0 +1,60 @@
+﻿{
+    "Total":  10,
+    "Passed":  10,
+    "Failed":  0,
+    "ProxyWritten":  false,
+    "TaskWritten":  false,
+    "Environment":  "Isolated fixture, mocked proxy/task/identity operations",
+    "Results":  [
+                    {
+                        "Name":  "Upgrade stage failure leaves watcher/files untouched",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Configuration gate contention leaves watcher/files untouched",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Partial payload replacement rolls back bytes/task and legacy pause",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Configuration failure restores complete payload and prior config",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Manifest failure preserves Direct intent and original backup",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Successful migration keeps rules/config ownership and full rollback backup",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Incomplete rollback retains recovery/stop protection and blocks startup",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Long payload backup paths use a short atomic temporary filename",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Transient Windows sharing lock permits verified atomic replacement after release",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Persistent Windows sharing lock fails with paths and preserves the valid destination",
+                        "Passed":  true,
+                        "Error":  ""
+                    }
+                ]
+}

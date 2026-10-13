@@ -1,6 +1,6 @@
-﻿{
+{
     "Time":  "2026-10-13T21:24:44.8801965+08:00",
-    "Exe":  "C:\\Users\\XU\\Documents\\WiFiProxySwitcher\\release\\dist\\WiFiProxySwitcher.exe",
+    "Exe": "%LOCALAPPDATA%\\WiFiProxySwitcher\\WiFiProxySwitcher.exe",
     "ExeBytes":  161930898,
     "ExeSha256":  "40C8BAD3CBE5732A65863B3650739E06882E7FF703D1DC3D57A60437F3BC16D4",
     "OS":  "Microsoft Windows 11 企业版",

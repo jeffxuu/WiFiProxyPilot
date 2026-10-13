@@ -2,7 +2,7 @@
 
 产品显示名 WiFi Proxy Pilot，中文 Wi-Fi 智能代理助手。候选分支 `feature/v3.2-product-experience`；原仓库及安装身份兼容。此表不以源码存在或模拟通过替代真实验收。
 
-当前节点：实际 WPF 视觉初版待设计确认。公开准备材料为草稿，完整发布、下载、性能和最终回归尚需根据真实结果补齐，不声明第三阶段完成。
+当前节点：完整源码与国际化文档通过指向 main 的 PR 整合，仓库已改名为 WiFiProxyPilot，保持 Private。安装共享锁/长路径问题已有针对性修复与隔离回归；真实网络、安装生命周期验收及公开 beta 发布仍未完成。GitHub 证据见 [交付记录](GITHUB_DELIVERY.md)。
 
 ## 已确认的准备基础
 
@@ -44,7 +44,7 @@
 1. 完成真实 Windows 验收并决定 beta 风险是否可接受。
 2. 确认一次实际 UI 设计方向；用户未提出修正不等于代替实机验收。
 3. 决定旧历史中的企业 SSID、实际私有地址、CI 路径和旧 Release 附件如何处理。
-4. 分别确认仓库改名与 Private → Public。两项未经最终确认不执行。
+4. 仓库改名已按本轮明确授权执行；Private → Public 仍需最终确认。
 5. 确认 beta Release 的发布状态和签名安排。草稿/预发布不可宣传为全面验收正式版本。
 
 建议 About：Windows 11 Wi-Fi proxy manager with user-owned SSID rules, gateway proxy automation and an independent background watcher.

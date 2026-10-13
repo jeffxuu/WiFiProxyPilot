@@ -1,6 +1,6 @@
 # v3.0.0 产品化开始前审计
 
-2026-10-12（Asia/Shanghai），从 `https://github.com/jeffxuu/WiFi-test.git` 克隆到临时只读审计目录；实际修改继续在原仓库工作目录，没有另建产品或重写网络引擎。
+2026-10-12（Asia/Shanghai），从 `https://github.com/jeffxuu/WiFiProxyPilot.git` 克隆到临时只读审计目录；实际修改继续在原仓库工作目录，没有另建产品或重写网络引擎。
 
 - 远端默认分支 `main`：`38799dcad92646ad11b6c2f3f1fc6afc2808bd95`（Initial commit）。
 - 远端最新完整功能分支 `codex/wifi-proxy-round2`：`6895faa4b5c64aa191d4e519d3fdd3f6ca1dc95c`。

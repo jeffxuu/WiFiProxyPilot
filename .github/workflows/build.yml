@@ -1,0 +1,51 @@
+name: Windows build and core regression
+on:
+  push:
+    branches: [main, feature/v3.2-product-experience]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: pilot-build-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.425
+      - name: Validate README navigation and local images
+        shell: pwsh
+        run: ./tools/Validate-Readmes.ps1
+      - name: Engine regression in isolated fixtures
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force release/generated | Out-Null
+          powershell.exe -NoProfile -File tests/Run-Tests.ps1 -ResultPath release/generated/engine-results-windows.json
+          if ($LASTEXITCODE) { throw 'Engine regression failed' }
+      - name: Upgrade transaction and rollback regression
+        shell: powershell
+        run: |
+          powershell.exe -NoProfile -File tests/UpgradeTransaction.Tests.ps1 -ResultPath release/generated/upgrade-results-windows.json
+          if ($LASTEXITCODE) { throw 'Upgrade regression failed' }
+      - name: Build self-contained EXE and launcher regression
+        shell: powershell
+        run: ./release/Build.ps1
+      - name: Isolated production status reader regression
+        shell: powershell
+        run: |
+          dotnet run --project tests/Status.Tests/Status.Tests.csproj --configuration Release -- release/generated/status-results-windows.json
+          if ($LASTEXITCODE) { throw 'Status regression failed' }
+      - name: Upload build and verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WiFiProxyPilot-v3.2.0-beta.1-${{ github.sha }}
+          path: |
+            release/dist/*
+            release/generated/*results*.json
+          retention-days: 30

@@ -16,5 +16,5 @@ fi
 export XDG_CACHE_HOME="$tool_root/xdg-cache"
 export XDG_CONFIG_HOME="$tool_root/xdg-config"
 export XDG_DATA_HOME="$tool_root/xdg-data"
-cd /workspace/WiFi-test
+cd "$(dirname "$0")/.."
 "$ps_root/pwsh" -NoLogo -NoProfile -File tests/Run-Tests.ps1 -ResultPath /tmp/wifi-test-results.json

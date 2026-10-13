@@ -1,10 +1,10 @@
 # Contributing
 
-Build on the latest complete product branch, preserve existing history and user configuration, and keep changes focused on a concrete user problem. The repository is currently private; publication and renaming are separate owner decisions.
+Build on the complete product source in main, preserve existing history and user configuration, and keep changes focused on a concrete user problem. The repository is WiFiProxyPilot and remains private; publication is a separate owner decision.
 
 ## Development
 
-Use Windows 11 x64, the repository's pinned .NET 8 SDK and Windows PowerShell 5.1. Run the engine regression once before work, targeted checks while editing, and one final core regression. `release/Build.ps1` builds the self-contained EXE and runs C# checks. Desktop self-tests and performance measurements use isolated fixture directories and must not touch the host proxy or tasks.
+Use Windows 11 x64, the repository's pinned .NET 8 SDK and Windows PowerShell 5.1. Run focused checks for the changed risks; the main/PR Windows workflow runs engine, upgrade-transaction, launcher and status-reader regression with the self-contained build. `release/Build.ps1` builds the EXE and runs launcher checks. Desktop self-tests and performance measurements use isolated fixture directories and must not touch the host proxy or tasks.
 
 Keep UI work in WPF view models/application services. Reuse the existing WLAN/WinINet engine, atomic configuration and revision checks, payload integrity cache, task ownership and safe restore logic. Preserve installation identity compatibility. New dependencies need a fixed version and applicable license notices.
 

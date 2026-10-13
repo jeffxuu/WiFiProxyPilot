@@ -36,8 +36,16 @@ Copy-Item -LiteralPath $exe -Destination (Join-Path $dist 'WiFiProxySwitcher.exe
 $archive=Join-Path $dist 'WiFiProxySwitcher.zip'; if (Test-Path -LiteralPath $archive) { Remove-Item -LiteralPath $archive -Force }
 $s=[IO.File]::Open($archive,[IO.FileMode]::CreateNew); $z=[IO.Compression.ZipArchive]::new($s,[IO.Compression.ZipArchiveMode]::Create)
 try {
-    foreach ($pair in @(@($exe,'WiFiProxySwitcher.exe'),@((Join-Path $repo 'README.md'),'README.md'))) {
-        [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($z,$pair[0],$pair[1],[IO.Compression.CompressionLevel]::Optimal) | Out-Null
+    $documentation=@('LICENSE','CONTRIBUTING.md','SECURITY.md')
+    $documentation+=@(Get-ChildItem -LiteralPath $repo -Filter 'README*.md' | ForEach-Object Name)
+    $documentation+=@(Get-DistributionFiles | Where-Object { $_ -like 'docs/*' })
+    $documentation+=@('docs/GITHUB_DELIVERY.md','docs/evidence/v32-preview-performance.json')
+    $documentation+=@(Get-ChildItem -LiteralPath (Join-Path $repo 'docs/evidence') -Filter 'github-delivery-*.json' | ForEach-Object { 'docs/evidence/'+$_.Name })
+    $documentation+=@(Get-ChildItem -LiteralPath (Join-Path $repo 'docs/images') -File | ForEach-Object { 'docs/images/'+$_.Name })
+    $pairs=@([pscustomobject]@{Path=$exe;Name='WiFiProxySwitcher.exe'})
+    foreach($name in @($documentation | Sort-Object -Unique)) { $pairs+=[pscustomobject]@{Path=(Join-Path $repo $name);Name=$name} }
+    foreach ($pair in $pairs) {
+        [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($z,$pair.Path,$pair.Name,[IO.Compression.CompressionLevel]::Optimal) | Out-Null
     }
 } finally { $z.Dispose(); $s.Dispose() }
 $lines=@(); foreach ($name in @('WiFiProxySwitcher.exe','WiFiProxySwitcher.zip')) { $lines += ((Get-FileHash -LiteralPath (Join-Path $dist $name) -Algorithm SHA256).Hash.ToLowerInvariant()+'  '+$name) }

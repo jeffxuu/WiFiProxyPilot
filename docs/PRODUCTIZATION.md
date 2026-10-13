@@ -26,7 +26,7 @@ EXE 采用 asInvoker，允许用户第一次显式右键管理员运行；不自
 WiFiProxySwitcher.exe                 状态窗口；尚无桌面安装时自动安装
 WiFiProxySwitcher.exe /install
 WiFiProxySwitcher.exe /install /install-dir "D:\我的工具\WiFi 代理"
-WiFiProxySwitcher.exe /status /output "C:\Users\你的账户\Desktop\诊断.json"
+WiFiProxySwitcher.exe /status /output "%LOCALAPPDATA%\WiFiProxySwitcher\state\desktop-status.json"
 WiFiProxySwitcher.exe /start
 WiFiProxySwitcher.exe /stop
 WiFiProxySwitcher.exe /check

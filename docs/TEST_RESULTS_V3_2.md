@@ -1,6 +1,20 @@
 # v3.2 visual checkpoint verification
 
-2026-10-14 · Windows 11 10.0.26200, SDK 8.0.425, Windows PowerShell 5.1. This is a reviewable UI checkpoint, not completed release acceptance.
+2026-10-14 · Windows 11 10.0.26200, SDK 8.0.425, Windows PowerShell 5.1. This preserves the original UI checkpoint record and adds focused GitHub-delivery regression; it is not completed real-network release acceptance.
+
+## GitHub-delivery regression
+
+The installation blocker recorded below was investigated during repository delivery. Atomic upgrade temporary names now use a short independent basename in the destination directory, avoiding the Windows PowerShell 5.1 path limit. Replacement retries are bounded to Windows sharing/lock HResults only; permanent failures retain rollback and precise path diagnostics. Fault-injection tests now require the intended fault to be reached.
+
+| Scope | Result | Committed evidence |
+| --- | --- | --- |
+| Upgrade staging, migration, original-backup preservation, partial/incomplete rollback, actual transient/permanent file locks and long paths | 10/10 passed | [upgrade](evidence/github-delivery-upgrade.json) |
+| Targeted engine syntax, V31 upgrade and V32 state semantics | 8/8 passed | [engine](evidence/github-delivery-engine.json) |
+| Launcher/configuration/cache contracts | 45/45 passed | [launcher](evidence/github-delivery-launcher.json) |
+| Actual production status reader with forbidden Windows boundaries | 9/9 passed | [status](evidence/github-delivery-status.json) |
+| Targeted capture of the existing homepage and actual tray menu | 5/5 passed; ProxyWritten=false, TaskWritten=false | [capture](evidence/github-delivery-ui.json) |
+
+These checks use isolated fixtures, with no real proxy or task writes. They resolve the reproduced code blocker for source integration; real installed upgrades, network changes and lifecycle acceptance remain pending. Current Windows CI and merge verification are tracked in [GitHub delivery](GITHUB_DELIVERY.md).
 
 ## Evidence and results
 
@@ -17,7 +31,7 @@
 | Refined light homepage only | 4/4 passed | artifacts/home-refinement/review.json |
 | Complete engine regression at checkpoint | 115/119 initially; syntax and two outdated test assumptions corrected and separately passed; **one upgrade test remains failed** | artifacts/core-regression-preview.json; core-regression-preview-syntax-corrected.json; core-regression-targeted-repairs.json |
 
-The remaining failure is the existing V31 isolated upgrade preservation case: File.Replace reports a sharing lock and installation safely rolls back. It reproduced in the targeted retry. Its safety assertion was not weakened or deleted. It blocks release readiness; precise path diagnostics and bounded replacement retry need further installation work. The user's current round is homepage refinement, so no PowerShell engine change was made to conceal this failure.
+At the original UI checkpoint, the remaining failure was the existing V31 isolated upgrade preservation case: File.Replace reported a sharing lock and installation safely rolled back. It reproduced in the targeted retry. The safety assertion was retained. The focused delivery repair and new regression results above supersede that code blocker; this original record is retained for traceability.
 
 The first non-isolated concurrent baseline attempt was unsuitable: later test files observed in-progress product changes. Its 110/113 report remains in artifacts/baseline-v32.json rather than being presented as a pristine baseline. The isolated baseline retained all security assertions with representative transitions instead of thousands of loops. Its single timing failure was a sampling-script substitution mistake, corrected using the original 2000ms assertion and recorded separately. No reports were merged into a fictional all-green run.
 
