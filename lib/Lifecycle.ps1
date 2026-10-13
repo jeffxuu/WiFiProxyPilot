@@ -122,6 +122,134 @@ function New-InstallManifest([string]$Root,[string]$FilesRoot,$Previous,[switch]
     }
     return $manifest
 }
+function Copy-UpgradeFileAtomic([string]$Source,[string]$Destination) {
+    Assert-PlainPath $Source; Assert-PlainPath $Destination
+    [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($Destination)) | Out-Null
+    $temporary=$Destination+'.upgrade-tmp.'+[Guid]::NewGuid().ToString('N')
+    try {
+        $inputStream=[IO.File]::OpenRead($Source)
+        $outputStream=$null
+        try {
+            $outputStream=[IO.FileStream]::new($temporary,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None,4096,[IO.FileOptions]::WriteThrough)
+            $inputStream.CopyTo($outputStream); $outputStream.Flush($true)
+        } finally { if ($null -ne $outputStream) { $outputStream.Dispose() }; $inputStream.Dispose() }
+        if ((Get-FileHash -LiteralPath $temporary -Algorithm SHA256).Hash -cne (Get-FileHash -LiteralPath $Source -Algorithm SHA256).Hash) { throw '升级文件复制校验失败' }
+        if (Test-Path -LiteralPath $Destination) { [IO.File]::Replace($temporary,$Destination,[NullString]::Value) }
+        else { [IO.File]::Move($temporary,$Destination) }
+    } finally { if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary -Force } }
+}
+function Restore-UpgradeTaskState($Manifest,$TaskState,[bool]$WasEnabled,[bool]$WasRunning,[bool]$HadStopRequest) {
+    if ($null -eq $TaskState) { return }
+    $task=Get-OwnedTask $Manifest
+    if ($null -eq $task) { throw '回滚时原任务已消失；文件已恢复，但需修复任务' }
+    # Restore the old running state without changing the restored configuration's Paused/Direct intent.
+    # Starting a task can require temporary enabling even when logon was originally disabled.
+    if ($WasEnabled -or ($WasRunning -and -not $HadStopRequest)) { Enable-ScheduledTask -TaskName $Manifest.TaskName -TaskPath '\' -ErrorAction Stop | Out-Null }
+    if ($WasRunning -and -not $HadStopRequest) { Start-ScheduledTask -TaskName $Manifest.TaskName -TaskPath '\' -ErrorAction Stop | Out-Null }
+    if (-not $WasEnabled) { Disable-ScheduledTask -TaskName $Manifest.TaskName -TaskPath '\' -ErrorAction Stop | Out-Null }
+}
+function Install-ProductUpgrade([string]$Source,[string]$Root,$Previous) {
+    $recoveryPath=Join-Path $Root 'state/upgrade-recovery.json'; Assert-PlainPath $recoveryPath
+    if (Test-Path -LiteralPath $recoveryPath) { throw ('上次升级有未完成的恢复记录；为保护旧配置和备份，请先检查 '+$recoveryPath) }
+    $stage=$Root+'.upgrade.'+[Guid]::NewGuid().ToString('N')
+    Assert-PlainPath $stage
+    $gate=$null; $taken=$false
+    try {
+        # A source copy/verification failure happens before the existing watcher or files are touched.
+        [IO.Directory]::CreateDirectory($stage) | Out-Null; Protect-InstallDirectory $stage
+        foreach ($name in Get-DistributionFiles) { Copy-UpgradeFileAtomic (Join-Path $Source $name) (Join-Path $stage $name) }
+        $configPath=Join-Path $Root 'config.json'; $gate=New-ConfigurationMutex $configPath
+        $taken=Enter-Mutex $gate 5000; if (-not $taken) { throw '配置正在保存；尚未停止后台或替换文件，请稍后升级' }
+        $migrated=Read-Configuration $configPath
+        Read-OriginalProxy $Root | Out-Null
+        # Recheck ownership after staging and acquiring the shared configuration gate.
+        foreach ($name in Get-DistributionFiles) {
+            if ((Test-Path -LiteralPath (Join-Path $Root $name)) -and -not @($Previous.Files | Where-Object { $_.Path.Replace('\','/') -ceq $name }).Count) { throw ('新版本路径被非本工具文件占用，拒绝覆盖: '+$name) }
+        }
+        Write-JsonAtomic (Join-Path $stage 'config.json') $migrated
+        $manifest=New-InstallManifest $Root $stage $Previous -InPlace:([string]::Equals($Source,$Root,[StringComparison]::OrdinalIgnoreCase))
+        Assert-InstallManifest $manifest
+        $task=Get-OwnedTask $Previous; $wasEnabled=$false; $wasRunning=$false
+        if ($null -ne $task) {
+            $wasRunning=([string](Get-TaskField $task 'State')) -in @('Running','Queued')
+            $enabled=Get-TaskField (Get-TaskField $task 'Settings') 'Enabled'
+            if ($null -ne $enabled) { $wasEnabled=[bool]$enabled } else { $wasEnabled=([string](Get-TaskField $task 'State')) -ne 'Disabled' }
+        }
+        $backupDir=Join-Path $Root ('user-backups/upgrade-'+[DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss')+'-'+[Guid]::NewGuid().ToString('N'))
+        Assert-PlainPath $backupDir; [IO.Directory]::CreateDirectory($backupDir) | Out-Null
+        $snapshots=@{}
+        foreach ($name in @(@(Get-DistributionFiles)+@('config.json.previous','state/installation.json','state/stop.request') | Select-Object -Unique)) {
+            $path=Join-Path $Root $name; Assert-PlainPath $path
+            $exists=Test-Path -LiteralPath $path
+            $snapshots[$name]=[pscustomobject]@{Exists=$exists;Path=$name;Hash=''}
+            if ($exists) {
+                $backup=Join-Path $backupDir $name; Copy-UpgradeFileAtomic $path $backup
+                $snapshots[$name].Hash=(Get-FileHash -LiteralPath $backup -Algorithm SHA256).Hash
+            }
+        }
+        $hadStop=$snapshots['state/stop.request'].Exists
+        $record=[ordered]@{Phase='Prepared';Root=$Root;BackupDirectory=$backupDir;OriginalIntent=$migrated.ManagementIntent;TaskEnabled=$wasEnabled;TaskRunning=$wasRunning;Files=@($snapshots.Values)}
+        Write-JsonAtomic $recoveryPath $record
+        $written=[Collections.Generic.List[string]]::new()
+        try {
+            Stop-OwnedWatcher $Previous
+            foreach ($name in Get-DistributionFiles) {
+                if ($name -eq 'config.json') { continue }
+                $written.Add($name)
+                Copy-UpgradeFileAtomic (Join-Path $stage $name) (Join-Path $Root $name)
+            }
+            $written.Add('config.json'); $written.Add('config.json.previous')
+            Write-JsonAtomic $configPath $migrated ($configPath+'.previous')
+            $written.Add('state/installation.json')
+            Write-JsonAtomic (Join-Path $Root 'state/installation.json') $manifest
+            Remove-Item -LiteralPath $recoveryPath -Force
+            return $manifest
+        } catch {
+            $failure=$_.Exception.Message; $rollbackErrors=[Collections.Generic.List[string]]::new()
+            # Restore exact original bytes, including the previous config and ownership manifest.
+            for ($index=$written.Count-1; $index -ge 0; $index--) {
+                $name=$written[$index]; $path=Join-Path $Root $name
+                try {
+                    if ($snapshots[$name].Exists) { Copy-UpgradeFileAtomic (Join-Path $backupDir $name) $path }
+                    elseif (Test-Path -LiteralPath $path) { Assert-PlainPath $path; Remove-Item -LiteralPath $path -Force }
+                } catch { $rollbackErrors.Add($name+': '+$_.Exception.Message) }
+            }
+            if ($rollbackErrors.Count -eq 0) {
+                try {
+                    $stop=Join-Path $Root 'state/stop.request'
+                    if ($hadStop) { Copy-UpgradeFileAtomic (Join-Path $backupDir 'state/stop.request') $stop }
+                    elseif (Test-Path -LiteralPath $stop) { Assert-PlainPath $stop; Remove-Item -LiteralPath $stop -Force }
+                } catch { $rollbackErrors.Add('stop.request: '+$_.Exception.Message) }
+            }
+            # A restarted watcher must be able to acquire its config gate. Its old intent is untouched.
+            $gate.ReleaseMutex(); $taken=$false
+            if ($rollbackErrors.Count -eq 0) {
+                try { Restore-UpgradeTaskState $Previous $task $wasEnabled $wasRunning $hadStop }
+                catch { $rollbackErrors.Add('任务状态: '+$_.Exception.Message) }
+            }
+            if ($rollbackErrors.Count -eq 0) {
+                try { Remove-Item -LiteralPath $recoveryPath -Force }
+                catch { $rollbackErrors.Add('恢复记录: '+$_.Exception.Message) }
+            }
+            if ($rollbackErrors.Count -gt 0) {
+                # Keep the backup and stop marker. Never start a mixed or incompletely restored installation.
+                [IO.File]::WriteAllText((Join-Path $Root 'state/stop.request'),'upgrade rollback incomplete')
+                $record.Phase='RollbackFailed'; $record['Failure']=$failure; $record['RollbackErrors']=$rollbackErrors.ToArray()
+                try { Write-JsonAtomic $recoveryPath $record } catch { Write-ControlFailure 'UpgradeRollback' $_.Exception.Message }
+                throw ('升级失败，回滚尚未完成；已保留停止保护、全部备份和恢复记录 '+$recoveryPath+'。原错误: '+$failure+'；'+($rollbackErrors -join '；'))
+            }
+            throw ('升级失败，原文件、配置、安装记录及任务状态已回滚；最初代理备份未修改。备份: '+$backupDir+'。原错误: '+$failure)
+        }
+    } finally {
+        if ($taken) { $gate.ReleaseMutex() }; if ($null -ne $gate) { $gate.Dispose() }
+        # Only our freshly-created sibling staging directory may be recursively removed.
+        $stageFull=[IO.Path]::GetFullPath($stage); $expected=[IO.Path]::GetFullPath($Root)+'.upgrade.'
+        if (-not $stageFull.StartsWith($expected,[StringComparison]::OrdinalIgnoreCase) -or $stageFull.Substring($expected.Length) -notmatch '^[0-9a-f]{32}$') { throw '升级暂存路径异常，拒绝清理' }
+        Assert-PlainPath $stageFull
+        try { if (Test-Path -LiteralPath $stageFull) { Remove-Item -LiteralPath $stageFull -Recurse -Force } }
+        catch { Write-ControlFailure 'UpgradeStageCleanup' ('暂存目录保留，安装/回滚结果不受影响: '+$stageFull+'；'+$_.Exception.Message) }
+    }
+}
 function Install-ProductFiles([string]$Source,[string]$Root,$Previous,[string]$SetupConfigPath='') {
     if ($null -ne $Previous -and $null -ne $Previous.PSObject.Properties['Phase'] -and $Previous.Phase -eq 'Uninstalling') { throw '上次卸载尚未完成，请先从完整项目包运行 Uninstall.bat -InstallDir 指定此目录' }
     # Complete source and config preflight happens before stopping an existing monitor or touching its files.
@@ -149,30 +277,7 @@ function Install-ProductFiles([string]$Source,[string]$Root,$Previous,[string]$S
     Assert-ProxyPolicy
     if ($null -ne $Previous) {
         if (-not (Test-Path -LiteralPath (Join-Path $Root 'state/proxy-before-install.json'))) { throw '原配置备份丢失，拒绝更新安装' }
-        Stop-OwnedWatcher $Previous
-        if (-not [string]::Equals($Source,$Root,[StringComparison]::OrdinalIgnoreCase)) {
-            $backupDir=Join-Path $Root ('user-backups/'+[DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss')+'-'+[Guid]::NewGuid().ToString('N'))
-            foreach ($entry in $Previous.Files) {
-                $name=$entry.Path.Replace('\','/'); $p=Join-Path $Root $name
-                if ($name -ne 'config.json' -and (Test-Path -LiteralPath $p) -and (Get-FileHash -LiteralPath $p -Algorithm SHA256).Hash -cne $entry.Hash) {
-                    $dest=Join-Path $backupDir $name; Assert-PlainPath $dest
-                    [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($dest)) | Out-Null
-                    Copy-Item -LiteralPath $p -Destination $dest -Force
-                }
-            }
-        }
-        Copy-ProductPayload $Source $Root -PreserveConfig
-        # Migrate only the actual installed file. Keep the original proxy backup byte-for-byte.
-        # The shared configuration lock prevents a simultaneous GUI save from being lost.
-        $installedConfig=Join-Path $Root 'config.json'; $gate=New-ConfigurationMutex $installedConfig; $taken=$false
-        try {
-            $taken=Enter-Mutex $gate 5000; if (-not $taken) { throw '配置正在保存，未迁移，请稍后重新升级' }
-            $migrated=Read-Configuration $installedConfig
-            Write-JsonAtomic $installedConfig $migrated ($installedConfig+'.previous')
-        } finally { if ($taken) { $gate.ReleaseMutex() }; $gate.Dispose() }
-        $manifest=New-InstallManifest $Root $Root $Previous -InPlace:([string]::Equals($Source,$Root,[StringComparison]::OrdinalIgnoreCase))
-        Write-JsonAtomic (Join-Path $Root 'state/installation.json') $manifest
-        return $manifest
+        return Install-ProductUpgrade $Source $Root $Previous
     }
     # Stage the complete first installation beside the target; a copy failure cannot strand a half-install there.
     $stage=$Root+'.stage.'+[Guid]::NewGuid().ToString('N')
@@ -281,6 +386,7 @@ function Stop-OwnedWatcher($Manifest) {
 }
 function Start-OwnedWatcher($Manifest) {
     if ($null -ne $Manifest.PSObject.Properties['Phase'] -and $Manifest.Phase -eq 'Uninstalling') { throw '卸载尚未完成，拒绝重新启动监控' }
+    if (Test-Path -LiteralPath (Join-Path $Manifest.Root 'state/upgrade-recovery.json')) { throw '升级恢复尚未完成，拒绝启动可能混合版本的后台；请检查升级恢复记录和保留的备份' }
     $task=Get-OwnedTask $Manifest
     if ($null -eq $task) { throw '自启动任务缺失，请重复安装以修复' }
     $stop=Join-Path $Manifest.Root 'state/stop.request'
