@@ -1,0 +1,48 @@
+{
+  "EarlyLayout": {
+    "ManagedEntry": 2410.6839,
+    "FirstVisible": 3158.6359,
+    "FirstPaint": 3249.9562,
+    "FirstStatus": 3295.4827,
+    "PayloadStart": 3312.8939,
+    "ReadyReopen": 11158.9826
+  },
+  "LayoutRun1": {
+    "ManagedEntry": 290.80429999999996,
+    "FirstVisible": 844.1596,
+    "FirstPaint": 1013.5079000000001,
+    "FirstStatus": 1077.5654,
+    "PayloadStart": 1096.9252999999999,
+    "CacheHit": false,
+    "ExtractMs": 245.4011,
+    "VerifyMs": 0.1161,
+    "PayloadReady": 1373.3841,
+    "ReadyReopen": 8852.378999999999,
+    "TrayOpenMilliseconds": 150.0817,
+    "Reopened": 9450.231899999999
+  },
+  "LayoutRun2": {
+    "ManagedEntry": 304.0394,
+    "FirstVisible": 912.8367000000001,
+    "FirstPaint": 989.0992,
+    "FirstStatus": 1066.3222,
+    "PayloadStart": 1112.3204,
+    "CacheHit": true,
+    "ExtractMs": 0,
+    "VerifyMs": 477.92,
+    "PayloadReady": 1613.0439000000001,
+    "ReadyReopen": 9158.4988,
+    "TrayOpenMilliseconds": 141.7364,
+    "Reopened": 9693.3046
+  },
+  "RefusedCache": {
+    "ManagedEntry": 193.5521,
+    "FirstVisible": 648.5335,
+    "FirstPaint": 709.0589,
+    "FirstStatus": 823.0640999999999,
+    "PayloadStart": 850.4649,
+    "PayloadError": "Access to the path is denied.",
+    "ReadyReopen": 8659.9367
+  },
+  "Notes": "Access denied sample refused cache initialization; no integrity bypass. Cold OS cache and antivirus not controlled."
+}

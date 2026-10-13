@@ -1,7 +1,17 @@
 ﻿Set-StrictMode -Version 2.0
 
+function Read-ConfigurationBytes([string]$Path) {
+    $stream=[IO.FileStream]::new($Path,[IO.FileMode]::Open,[IO.FileAccess]::Read,([IO.FileShare]::ReadWrite -bor [IO.FileShare]::Delete))
+    $memory=[IO.MemoryStream]::new()
+    try { if ($stream.Length -gt 1048576) { throw '配置文件过大' }; $stream.CopyTo($memory); return ,$memory.ToArray() }
+    finally { $memory.Dispose(); $stream.Dispose() }
+}
 function Read-Configuration([string]$Path) {
-    $c = Get-Content -LiteralPath $Path -Raw -Encoding UTF8 | ConvertFrom-Json
+    $bytes=Read-ConfigurationBytes $Path
+    return ConvertFrom-ConfigurationText ([Text.UTF8Encoding]::new($false,$true).GetString($bytes).TrimStart([char]0xFEFF))
+}
+function ConvertFrom-ConfigurationText([string]$Text) {
+    $c = $Text | ConvertFrom-Json
     foreach ($name in @('Whitelist','Port','Mode','PollSeconds','DebounceMilliseconds','DisconnectConfirmSeconds','RetrySeconds','FastRetryWindowSeconds','PreferredInterfaceGuid','Diagnostics','DiagnosticIntervalSeconds','DiagnosticTimeoutMilliseconds','HttpProbeUrl','SafeFailureThreshold','LogMaxBytes','LogArchives')) {
         if ($null -eq $c.PSObject.Properties[$name]) { throw "配置缺少字段: $name" }
     }
@@ -12,6 +22,15 @@ function Read-Configuration([string]$Path) {
     }
     if ($c.Mode -cnotin @('Strict','Safe') -or $c.Diagnostics -cnotin @('None','Tcp','Http')) { throw '模式配置错误' }
     if ($c.Whitelist -isnot [Array] -or @($c.Whitelist | Where-Object { $_ -isnot [string] -or [string]::IsNullOrEmpty($_) }).Count) { throw '白名单必须是非空 SSID 字符串数组' }
+    $names=[Collections.Generic.List[string]]::new()
+    foreach ($ssid in @('MC-Office','Meituan')+@($c.Whitelist)) {
+        if ([Text.UTF8Encoding]::new($false,$true).GetByteCount($ssid) -gt 32 -or $ssid -match '[\x00-\x1f\x7f-\x9f]') { throw 'SSID 应为 1–32 个 UTF-8 字节，不能含控制字符' }
+        if (-not @($names | Where-Object { [string]::Equals($_,$ssid,[StringComparison]::OrdinalIgnoreCase) }).Count) { $names.Add($ssid) }
+    }
+    $c.Whitelist=$names.ToArray()
+    foreach ($flag in @('LoginMonitor','TrayAutoStart','CloseToTray','MinimizeToTray')) {
+        if ($null -ne $c.PSObject.Properties[$flag] -and $c.$flag -isnot [bool]) { throw ('设置必须是布尔值: '+$flag) }
+    }
     if ($c.PreferredInterfaceGuid) { $g = [Guid]::Empty; if (-not [Guid]::TryParse($c.PreferredInterfaceGuid,[ref]$g)) { throw '接口 GUID 无效' } }
     if ($c.Diagnostics -eq 'Http') {
         $u = $null
@@ -46,7 +65,7 @@ function Get-Target($Snapshot, $Config, [string]$Health = 'Unknown') {
     $n = $items[0]
     $t = [pscustomobject]@{ Action='Keep'; Server=''; SSID=$n.SSID; Guid=$n.Guid; Gateway=$n.Gateway; Reason='' }
     $matchable=$true; if ($null -ne $n.PSObject.Properties['Matchable']) { $matchable=$n.Matchable }
-    foreach ($ssid in $Config.Whitelist) {
+    foreach ($ssid in @('MC-Office','Meituan')+@($Config.Whitelist)) {
         if ($matchable -and [string]::Equals($ssid,$n.SSID,[StringComparison]::OrdinalIgnoreCase)) { $t.Action='Disable'; $t.Reason='精确匹配代理关闭白名单'; return $t }
     }
     if (-not $n.Ready -or -not (Test-GatewayIPv4 $n.Gateway)) {

@@ -1,0 +1,38 @@
+[
+  {
+    "ManagedEntry": 2351.2104,
+    "PayloadStart": 2429.2085,
+    "PayloadExtractVerify": 2562.4883,
+    "PayloadReady": 2563.2587,
+    "FirstVisible": 2788.7891,
+    "FirstPaint": 2790.4632,
+    "FirstStatus": 2866.6873
+  },
+  {
+    "ManagedEntry": 174.038,
+    "PayloadStart": 268.5521,
+    "PayloadExtractVerify": 414.8088,
+    "PayloadReady": 415.7602,
+    "FirstVisible": 609.6696,
+    "FirstPaint": 611.0619,
+    "FirstStatus": 684.3625
+  },
+  {
+    "ManagedEntry": 185.5611,
+    "PayloadStart": 267.5955,
+    "PayloadExtractVerify": 423.665,
+    "PayloadReady": 424.4976,
+    "FirstVisible": 667.2514,
+    "FirstPaint": 669.4966,
+    "FirstStatus": 758.8426
+  },
+  {
+    "ManagedEntry": 185.8201,
+    "PayloadStart": 277.5744,
+    "PayloadExtractVerify": 442.0124,
+    "PayloadReady": 443.2881,
+    "FirstVisible": 691.8081,
+    "FirstPaint": 694.025,
+    "FirstStatus": 770.7732
+  }
+]

@@ -1,5 +1,42 @@
 ﻿Set-StrictMode -Version 2.0
 
+function New-ConfigurationReloadState([string]$Path) {
+    $c=$null; $fallback=$false
+    try { $c=Read-Configuration $Path } catch {
+        $errorText=$_.Exception.Message
+        foreach ($previous in @(($Path+'.previous'),(Join-Path (Split-Path $Path -Parent) 'state/config-last-good.json'))) {
+            try { $c=Read-Configuration $previous; $fallback=$true; break } catch { }
+        }
+        if ($null -eq $c) { throw ('配置无效且没有有效备份: '+$errorText) }
+    }
+    # The first loop reads and hashes one snapshot. Do not associate a second read's hash with the first read's values.
+    $revision=''
+    return @{Config=$c;Revision=$revision;Attempted='';Fallback=$fallback}
+}
+function Update-MonitorConfiguration($Reload,[string]$Path,$MonitorState,[scriptblock]$Log) {
+    try {
+        $bytes=Read-ConfigurationBytes $Path
+        $sha=[Security.Cryptography.SHA256]::Create()
+        try { $revision=[BitConverter]::ToString($sha.ComputeHash($bytes)).Replace('-','') } finally { $sha.Dispose() }
+        if ($revision -ceq $Reload.Revision -or $revision -ceq $Reload.Attempted) { return $false }
+        $Reload.Attempted=$revision
+        $candidate=ConvertFrom-ConfigurationText ([Text.UTF8Encoding]::new($false,$true).GetString($bytes).TrimStart([char]0xFEFF))
+        $Reload.Config=$candidate; $Reload.Revision=$revision; $Reload.Fallback=$false
+        $MonitorState.Stability.Key=''; $MonitorState.HealthKey=''; $MonitorState.Health=@{Health='Unknown';Failures=0}; $MonitorState.HealthChecked=-1.0e9
+        $Reload.LastError=''
+        & $Log 'INFO' '配置已热更新，将重新确认当前 Wi-Fi 和代理目标' @{ConfigRevision=$revision;WhitelistCount=$candidate.Whitelist.Count}
+        return $true
+    } catch {
+        $message=$_.Exception.Message
+        if (-not $Reload.ContainsKey('LastError') -or $Reload.LastError -cne $message) { & $Log 'ERROR' '配置更新被拒绝，保持最近一次有效配置' @{Error=$message}; $Reload.LastError=$message }
+        return $false
+    }
+}
+function Get-ConfigurationStamp([string]$Path) {
+    $item=Get-Item -LiteralPath $Path -ErrorAction SilentlyContinue
+    if ($null -eq $item) { return 'missing' }
+    return ([string]$item.LastWriteTimeUtc.Ticks+':'+[string]$item.Length)
+}
 function New-MonitorState {
     return @{ Stability=@{Key='';Since=0.0}; Health=@{Health='Unknown';Failures=0}; HealthKey=''; HealthChecked=-1.0e9; LastTick=-1.0; FastSince=-1.0; LastLog=''; LastError=''; LastErrorTime=-1.0e9; LastLogTime=-1.0e9; LastDiagnostic=''; LastWarning='' }
 }
@@ -22,6 +59,13 @@ function Get-HealthIdentity($Target) {
 }
 
 # Dependencies are explicit scriptblocks, so tests exercise this same production cycle without Windows writes.
+function Invoke-AutomaticMonitorCycle($State,$Config,$Services,[double]$Now) {
+    if (& $Services.IsPaused) {
+        & $Services.Heartbeat @{Target='Paused';SSID='';InterfaceGuid='';Gateway='';ActualEnabled=$null;Stable=$false;Reason='自动切换已暂停，当前手动代理保持不变'}
+        return [pscustomobject]@{WaitMs=500;Stopped=$false;Paused=$true}
+    }
+    return Invoke-MonitorCycle $State $Config $Services $Now
+}
 function Invoke-MonitorCycle($State,$Config,$Services,[double]$Now) {
     $wait=[int]$Config.PollSeconds*1000
     $gapLimit=[Math]::Max(30,2*$Config.PollSeconds+3*$Config.DiagnosticTimeoutMilliseconds/1000.0+$Config.DebounceMilliseconds/1000.0)

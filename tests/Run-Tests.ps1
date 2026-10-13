@@ -10,10 +10,19 @@ $root=Split-Path $PSScriptRoot -Parent
 $config=Read-Configuration (Join-Path $root 'config.json')
 $script:results=[Collections.Generic.List[object]]::new()
 function Check([bool]$Condition,[string]$Message='断言失败') { if (-not $Condition) { throw $Message } }
+function Remove-TestFixture([string]$Path) {
+    $full=[IO.Path]::GetFullPath($Path);$parent=[IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\')+'\'
+    if (-not $full.StartsWith($parent,[StringComparison]::OrdinalIgnoreCase) -or $full.Length -le $parent.Length -or $full -notmatch '[0-9a-fA-F]{32}$') { throw '拒绝清理非专属测试目录' }
+    # Windows/antivirus may hold a just-written file briefly. Retry cleanup, never a test assertion or product operation.
+    for($attempt=0;$attempt -lt 5;$attempt++) {
+        try { if(Test-Path -LiteralPath $full){Remove-Item -LiteralPath $full -Recurse -Force -ErrorAction Stop}; return }
+        catch { if($attempt -eq 4){throw}; Start-Sleep -Milliseconds (100*($attempt+1)) }
+    }
+}
 function Case([string]$Name,[scriptblock]$Body) {
     $caseClock=[Diagnostics.Stopwatch]::StartNew()
     try { & $Body; $script:results.Add([pscustomobject]@{ Name=$Name; Passed=$true; Error=''; DurationMilliseconds=$caseClock.ElapsedMilliseconds }); Write-Host ('PASS '+$Name) }
-    catch { $script:results.Add([pscustomobject]@{ Name=$Name; Passed=$false; Error=$_.Exception.Message; DurationMilliseconds=$caseClock.ElapsedMilliseconds }); Write-Host ('FAIL '+$Name+': '+$_.Exception.Message) }
+    catch { $script:results.Add([pscustomobject]@{ Name=$Name; Passed=$false; Error=$_.Exception.Message; Stack=$_.ScriptStackTrace; DurationMilliseconds=$caseClock.ElapsedMilliseconds }); Write-Host ('FAIL '+$Name+': '+$_.Exception.Message+'; '+$_.ScriptStackTrace) }
 }
 function Link([string]$Ssid='Other',[string]$Gateway='10.0.0.1',[long]$Metric=10,[string]$Guid='11111111-1111-1111-1111-111111111111') {
     return [pscustomobject]@{ SSID=$Ssid; Gateway=$Gateway; Metric=$Metric; Guid=$Guid; Ready=(Test-GatewayIPv4 $Gateway) }
@@ -228,6 +237,7 @@ Case '配置错误被拒绝，不进行系统写入' {
 . (Join-Path $PSScriptRoot 'Round2.Tests.ps1')
 . (Join-Path $PSScriptRoot 'TaskOwnership.Tests.ps1')
 . (Join-Path $PSScriptRoot 'Productization.Tests.ps1')
+. (Join-Path $PSScriptRoot 'V31.Tests.ps1')
 $failed=@($script:results | Where-Object { -not $_.Passed }).Count
 $report=[pscustomobject]@{ Time=[DateTimeOffset]::Now.ToString('o'); Platform=[Environment]::OSVersion.Platform.ToString(); PowerShell=$PSVersionTable.PSVersion.ToString(); Total=$script:results.Count; Passed=$script:results.Count-$failed; Failed=$failed; Results=$script:results.ToArray(); RealWindowsIntegration='NOT RUN by this simulation suite' }
 if ($ResultPath) { Write-JsonAtomic ([IO.Path]::GetFullPath($ResultPath)) $report }

@@ -8,15 +8,31 @@ internal static class Program
     [STAThread]
     private static int Main(string[] args)
     {
+        StartupMetrics.Mark("ManagedEntry");
         bool quiet = args.Contains("/quiet", StringComparer.OrdinalIgnoreCase);
         try
         {
             Options options = Options.Parse(args);
+            if (options.Command == "benchmark")
+            {
+                if (options.Output == null) throw new ArgumentException("/benchmark 需要 /output 指定隔离报告路径");
+                AppController.TestRoot = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(options.Output))!, "fixture");
+            }
+            StartupMetrics.Mark("ManagedEntry");
             ApplicationConfiguration.Initialize();
             if (options.Command == "self-test") return SelfTest(options);
             SessionGuard.Validate();
+            if (options.Command is "gui" or "tray" or "benchmark")
+            {
+                using var instance = new SingleInstance();
+                if (!instance.Primary) return 0;
+                if (options.Command == "benchmark") { StartupMetrics.Output = Path.GetFullPath(options.Output!); DesktopSmoke.CreateFixture(AppController.TestRoot!); StartupMetrics.Mark("ManagedEntry"); }
+                using var app = new AppController();
+                using var context = new TrayContext(app, options.Command == "tray", instance.Activation, instance.ExitRequest);
+                if (options.Command == "benchmark") DesktopSmoke.AttachBenchmark(context);
+                Application.Run(context); return 0;
+            }
             using var controller = new AppController();
-            if (options.Command == "gui") { Application.Run(new MainForm(controller)); return 0; }
             SessionGuard.AttachConsole(uint.MaxValue); Console.OutputEncoding = new UTF8Encoding(false);
             if (options.Command == "status")
             {
@@ -28,7 +44,7 @@ internal static class Program
                 Console.WriteLine(JsonSerializer.Serialize(new { Succeeded = false, Code = "UninstallStarted", Message = "卸载程序已启动；最终结果见 WiFiProxySwitcher-Control/uninstall-result.json。" }));
                 return 10; // Handoff accepted, not a claim that restoration/deletion already succeeded.
             }
-            if (options.WorkerPid != 0) AppController.WaitForParent(options);
+            if (options.WorkerPid != 0) { AppController.WaitForParent(options); SingleInstance.RequestExitAndWait(); }
             var r = controller.Execute(options).GetAwaiter().GetResult();
             if (r.Code == "RestoreConflict" && !options.Quiet)
             {
@@ -59,12 +75,6 @@ internal static class Program
     }
     private static int SelfTest(Options options)
     {
-        // Windows CI smoke: no installation, proxy, task or identity mutation.
-        using var controller = new AppController();
-        using var form = new MainForm(null); form.Show(); Application.DoEvents();
-        using var bitmap = new Bitmap(form.Width, form.Height); form.DrawToBitmap(bitmap, new Rectangle(Point.Empty, form.Size)); form.Close();
-        var report = JsonSerializer.Serialize(new { Version = "3.0.0", Windows = OperatingSystem.IsWindows(), Startup = "Passed", EmbeddedPayload = "Passed", WinFormsRender = "Passed", ProxyWritten = false, RealNetworkIntegration = "NOT RUN" });
-        string path = Path.GetFullPath(options.Output ?? Path.Combine(AppController.ControlDir, "exe-smoke.json")); SafeFiles.PlainPath(path); File.WriteAllText(path, report);
-        bitmap.Save(Path.ChangeExtension(path, ".png")); return 0;
+        return DesktopSmoke.Run(options);
     }
 }

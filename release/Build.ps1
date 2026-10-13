@@ -7,6 +7,7 @@ $repo=Split-Path $PSScriptRoot -Parent
 Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $generated=Join-Path $PSScriptRoot 'generated'; [IO.Directory]::CreateDirectory($generated) | Out-Null
+[IO.File]::WriteAllText((Join-Path $generated 'NativeReader.cs'),("#nullable disable"+[Environment]::NewLine+[IO.File]::ReadAllText((Join-Path $repo 'lib/Native.cs'))),[Text.UTF8Encoding]::new($false))
 $zipPath=Join-Path $generated 'payload.zip'; if (Test-Path -LiteralPath $zipPath) { Remove-Item -LiteralPath $zipPath -Force }
 $hashes=[ordered]@{}
 $stream=[IO.File]::Open($zipPath,[IO.FileMode]::CreateNew)

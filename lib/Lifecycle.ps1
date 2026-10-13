@@ -3,7 +3,7 @@ $script:Pointer='Software\WiFiProxySwitcher'
 $script:TaskPrefix='WiFiProxySwitcher-'
 
 function Get-ProductFiles {
-    return @('Control.ps1','ProxyWatcher.ps1','Diagnose.ps1','SilentLauncher.vbs','config.json','README.md','tools/Install.bat','tools/Start.bat','tools/Stop.bat','tools/Uninstall.bat','tools/RestoreProxy.bat','tools/Status.bat','tools/Diagnose.bat','lib/Core.ps1','lib/Windows.ps1','lib/Native.cs','lib/Monitor.ps1','lib/Lifecycle.ps1','lib/Desktop.ps1','tests/Run-Tests.ps1','tests/Run-Tests.bat','tests/ProbeServer.cs','tests/Round2.Tests.ps1','tests/TaskOwnership.Tests.ps1','tests/Productization.Tests.ps1','docs/ARCHITECTURE.md','docs/WINDOWS_ACCEPTANCE.md','docs/TEST_RESULTS.md','docs/REVIEW_ROUND2.md','docs/TASK_OWNERSHIP_FIX.md','docs/test-results.json','docs/ADVANCED_USAGE.md','docs/PRODUCTIZATION.md','docs/PRODUCT_WINDOWS_ACCEPTANCE.md','docs/PRODUCT_TEST_RESULTS.md','docs/REPOSITORY_AUDIT_V3.md','docs/product-engine-tests.json','docs/product-launcher-tests.json')
+    return @('Control.ps1','ProxyWatcher.ps1','Diagnose.ps1','SilentLauncher.vbs','config.json','README.md','tools/Install.bat','tools/Start.bat','tools/Stop.bat','tools/Uninstall.bat','tools/RestoreProxy.bat','tools/Status.bat','tools/Diagnose.bat','lib/Core.ps1','lib/Windows.ps1','lib/Native.cs','lib/Monitor.ps1','lib/Lifecycle.ps1','lib/Desktop.ps1','tests/Run-Tests.ps1','tests/Run-Tests.bat','tests/ProbeServer.cs','tests/Round2.Tests.ps1','tests/TaskOwnership.Tests.ps1','tests/Productization.Tests.ps1','docs/ARCHITECTURE.md','docs/WINDOWS_ACCEPTANCE.md','docs/TEST_RESULTS.md','docs/REVIEW_ROUND2.md','docs/TASK_OWNERSHIP_FIX.md','docs/test-results.json','docs/ADVANCED_USAGE.md','docs/PRODUCTIZATION.md','docs/PRODUCT_WINDOWS_ACCEPTANCE.md','docs/PRODUCT_TEST_RESULTS.md','docs/REPOSITORY_AUDIT_V3.md','docs/product-engine-tests.json','docs/product-launcher-tests.json','tests/V31.Tests.ps1','tools/Measure-Startup.ps1','docs/UI_DESIGN_V3_1.md','docs/TRAY_LIFECYCLE.md','docs/STARTUP_PERFORMANCE.md','docs/CONFIG_HOT_RELOAD.md','docs/TEST_RESULTS_V3_1.md','docs/CHANGES_V3_1.md')
 }
 function Assert-InstallManifest($Manifest) {
     $allowed=@(Get-ProductFiles)+@('Install.bat','Start.bat','Stop.bat','Uninstall.bat','RestoreProxy.bat','Status.bat','Diagnose.bat'); $seen=@{}
@@ -205,7 +205,7 @@ function Uninstall-Product($Manifest,[switch]$KeepCurrentProxy,[switch]$DeleteLo
     }
     # Remove only our pointer value; leave unrelated values/subkeys untouched. A surviving marker supports -InstallDir recovery.
     if (Get-InstalledRoot) { Remove-InstallPointer $Manifest.Root }
-    foreach ($name in @('last-applied.json','proxy-before-install.json','status.json','control-status.json','check.request','stop.request','installation.json')) {
+    foreach ($name in @('last-applied.json','proxy-before-install.json','status.json','control-status.json','check.request','stop.request','pause.request','config-last-good.json','installation.json')) {
         $p=Join-Path $Manifest.Root ('state/'+$name); Assert-PlainPath $p
         if (Test-Path -LiteralPath $p) { Remove-Item -LiteralPath $p -Force }
     }

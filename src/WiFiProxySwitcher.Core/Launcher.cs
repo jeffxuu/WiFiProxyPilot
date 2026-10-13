@@ -13,7 +13,7 @@ public sealed record Options(string Command, bool Quiet = false, bool Force = fa
     {
         if (args.Length == 0) return new("gui");
         var command = args[0].ToLowerInvariant();
-        if (!new[] { "/install", "/uninstall", "/restore", "/status", "/start", "/stop", "/check", "/self-test" }.Contains(command))
+        if (!new[] { "/install", "/uninstall", "/restore", "/status", "/start", "/stop", "/check", "/pause", "/resume", "/settings", "/tray", "/benchmark", "/self-test" }.Contains(command))
             throw new ArgumentException("未知命令。支持 /install /uninstall /restore /status /start /stop /check。");
         var o = new Options(command[1..]);
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -27,7 +27,7 @@ public sealed record Options(string Command, bool Quiet = false, bool Force = fa
                 "/quiet" => o with { Quiet = true },
                 "/force-restore" when o.Command is "restore" or "uninstall" => o with { Force = true },
                 "/keep-current" when o.Command == "uninstall" => o with { Keep = true },
-                "/output" when o.Command is "status" or "self-test" => o with { Output = Value() },
+                "/output" when o.Command is "status" or "self-test" or "benchmark" => o with { Output = Value() },
                 "/install-dir" when o.Command == "install" => o with { InstallDir = Value() },
                 "/worker" when o.Command == "uninstall" => o with { WorkerPid = int.Parse(Value()), WorkerStart = long.Parse(Value()) },
                 _ => throw new ArgumentException("此命令不支持参数: " + flag)

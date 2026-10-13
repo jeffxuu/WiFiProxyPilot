@@ -1,7 +1,7 @@
 ﻿#requires -Version 5.1
 [CmdletBinding()]
 param(
-    [ValidateSet('Install','Start','Stop','Uninstall','Restore','Status','Check')][string]$Action='Status',
+    [ValidateSet('Install','Start','Stop','Uninstall','Restore','Status','Check','Pause','Resume','Settings')][string]$Action='Status',
     [string]$InstallDir='',
     [switch]$ForceRestore,
     [switch]$KeepCurrentProxy,
@@ -59,6 +59,7 @@ try {
         $settings=New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero)
         Register-ScheduledTask -TaskName $manifest.TaskName -TaskPath '\' -Action $taskAction -Trigger $trigger -Principal $principal -Settings $settings -Description ('WiFiProxySwitcher-v1|'+$manifest.OwnerSid+'|'+$InstallDir) -Force -ErrorAction Stop | Out-Null
         Start-OwnedWatcher $manifest
+        Apply-LoginSettings $InstallDir $manifest
         $result.Data=@{InstallDir=$InstallDir}; Write-Output ('安装位置: '+$InstallDir)
     } elseif (-not $root) {
         if ($Action -in @('Stop','Uninstall','Restore','Status','Check')) { Write-Output '当前用户未安装本工具，无需操作' } else { throw '尚未安装' }
@@ -67,13 +68,23 @@ try {
     } else {
         $manifest=Read-Install $root
         switch ($Action) {
+            'Pause' { Write-JsonAtomic (Join-Path $root 'state/pause.request') @{Time=[DateTimeOffset]::Now.ToString('o')}; Write-Output '自动切换已暂停；当前手动代理保持不变，未执行恢复' }
+            'Resume' {
+                $pause=Join-Path $root 'state/pause.request'; Assert-PlainPath $pause
+                if (Test-Path -LiteralPath $pause) { Remove-Item -LiteralPath $pause -Force }
+                $w=New-UserMutex 'Watcher'; $free=Enter-Mutex $w; if ($free) { $w.ReleaseMutex() }; $w.Dispose()
+                if ($free) { Start-OwnedWatcher $manifest }
+                Write-JsonAtomic (Join-Path $root 'state/check.request') @{Time=[DateTimeOffset]::Now.ToString('o')}
+                Apply-LoginSettings $root $manifest
+            }
+            'Settings' { Apply-LoginSettings $root $manifest }
             'Check' {
                 $w=New-UserMutex 'Watcher'; $free=Enter-Mutex $w; if ($free) { $w.ReleaseMutex() }; $w.Dispose()
                 if ($free) { throw '请先启动监控，再立即检测' }
                 Write-JsonAtomic (Join-Path $root 'state/check.request') @{Time=[DateTimeOffset]::Now.ToString('o')}
                 Write-Output '已请求立即检测；稳定性检查和 Strict/Safe 规则保持不变'
             }
-            'Start' { Start-OwnedWatcher $manifest }
+            'Start' { Start-OwnedWatcher $manifest; Apply-LoginSettings $root $manifest }
             'Stop' { Stop-OwnedWatcher $manifest; Write-Output '监控与登录任务已停止/禁用；代理保持当前状态，恢复请用 RestoreProxy.bat' }
             'Restore' { Stop-OwnedWatcher $manifest; Restore-OwnedProxy $manifest -Force:$ForceRestore }
             'Status' {

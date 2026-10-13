@@ -14,5 +14,9 @@
   "HttpProbeUrl": "",
   "SafeFailureThreshold": 2,
   "LogMaxBytes": 1048576,
-  "LogArchives": 3
+  "LogArchives": 3,
+  "LoginMonitor": true,
+  "TrayAutoStart": true,
+  "CloseToTray": true,
+  "MinimizeToTray": false
 }

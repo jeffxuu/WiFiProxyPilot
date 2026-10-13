@@ -2,7 +2,7 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType><TargetFramework>net8.0-windows</TargetFramework><UseWindowsForms>true</UseWindowsForms>
     <EnableWindowsTargeting>true</EnableWindowsTargeting><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable>
-    <Version>3.0.0</Version><AssemblyName>WiFiProxySwitcher</AssemblyName><ApplicationManifest>app.manifest</ApplicationManifest>
+    <Version>3.1.0</Version><AssemblyName>WiFiProxySwitcher</AssemblyName><ApplicationManifest>app.manifest</ApplicationManifest><ApplicationIcon>assets/app.ico</ApplicationIcon>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier><SelfContained>true</SelfContained><PublishSingleFile>true</PublishSingleFile>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract><PublishTrimmed>false</PublishTrimmed>
     <DebugType>none</DebugType><DebugSymbols>false</DebugSymbols><TreatWarningsAsErrors>true</TreatWarningsAsErrors>
@@ -10,5 +10,7 @@
   <ItemGroup><ProjectReference Include="../WiFiProxySwitcher.Core/WiFiProxySwitcher.Core.csproj" />
     <EmbeddedResource Include="../../release/generated/payload.zip" LogicalName="payload.zip" />
     <EmbeddedResource Include="../../release/generated/payload.manifest.json" LogicalName="payload.manifest.json" />
+    <EmbeddedResource Include="../../config.json" LogicalName="default-config.json" />
+    <Compile Include="../../release/generated/NativeReader.cs" Link="NativeReader.cs" />
   </ItemGroup>
 </Project>

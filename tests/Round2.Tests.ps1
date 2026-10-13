@@ -199,13 +199,14 @@ Case 'R2 压力：1000 条真实日志轮转和 300 次原子状态替换' {
     try {
         $c=Clone-Config; $c.LogMaxBytes=16384; $c.LogArchives=2
         for ($i=0;$i -lt 1000;$i++) { Write-SwitchLog $temp $c 'INFO' '压力测试' @{SSID='中文测试';Seq=$i} }
-        $files=@(Get-ChildItem -LiteralPath (Join-Path $temp 'logs')); Check ($files.Count -le 3)
-        Check (($files | Measure-Object Length -Sum).Sum -lt 3*(16384+1024))
+        $files=@(Get-ChildItem -LiteralPath (Join-Path $temp 'logs')); Check ($files.Count -le 3) ('日志文件数量异常: '+(($files | Select-Object Name,Length | ConvertTo-Json -Compress)))
+        Check (($files | Measure-Object Length -Sum).Sum -lt 3*(16384+1024)) ('日志总长度异常: '+(($files | Select-Object Name,Length | ConvertTo-Json -Compress)))
         foreach ($file in $files) { foreach ($line in Get-Content -LiteralPath $file.FullName -Encoding UTF8) { $line | ConvertFrom-Json | Out-Null } }
         $p=Join-Path $temp 'state.json'
-        for ($i=0;$i -lt 300;$i++) { Write-JsonAtomic $p @{Seq=$i}; Check ((Get-Content -LiteralPath $p -Raw -Encoding UTF8 | ConvertFrom-Json).Seq -eq $i) }
-        Check (@(Get-ChildItem -LiteralPath $temp -Filter '*.tmp.*').Count -eq 0)
-    } finally { Remove-Item -LiteralPath $temp -Recurse -Force }
+        for ($i=0;$i -lt 300;$i++) { Write-JsonAtomic $p @{Seq=$i}; Check ((Get-Content -LiteralPath $p -Raw -Encoding UTF8 | ConvertFrom-Json).Seq -eq $i) ('原子状态 Seq 不匹配: '+$i) }
+        $temporaryFiles=@(Get-ChildItem -LiteralPath $temp | Where-Object { $_.Name -like '*.tmp.*' })
+        Check ($temporaryFiles.Count -eq 0) ('临时文件残留: '+(@($temporaryFiles | ForEach-Object { $_.Name }) -join ','))
+    } finally { Remove-TestFixture $temp }
 }
 
 function New-LifeFixture {
