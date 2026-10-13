@@ -54,8 +54,12 @@ foreach ($name in Get-DistributionFiles) {
     $target=Join-Path $engine $name; [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($target)) | Out-Null
     Copy-Item -LiteralPath (Join-Path $repo $name) -Destination $target -Force
 }
-$installFiles=@(Get-ChildItem -LiteralPath $stage -File -Recurse | Where-Object { $_.Name -notin @('WiFiProxySwitcher.exe','installer-files.json') } | ForEach-Object {
-    [pscustomobject]@{Path=$_.FullName.Substring($stage.Length+1).Replace('\','/');Hash=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash}
+$installFiles=@(Get-ChildItem -LiteralPath $stage -File -Recurse | ForEach-Object {
+    $relative=$_.FullName.Substring($stage.Length+1).Replace('\','/')
+    # Match the actual [Files] package rules exactly; exclude unshipped PDB/runtime languages.
+    if ($relative -in @('WiFiProxyPilot.exe','InstallerLifecycle.ps1') -or ($relative -notmatch '/' -and $_.Extension -in @('.dll','.json') -and $_.Name -ne 'installer-files.json') -or $relative -match '^(engine|runtimes|en-US|zh-CN)/') {
+        [pscustomobject]@{Path=$relative;Hash=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash}
+    }
 })
 [IO.File]::WriteAllText((Join-Path $stage 'installer-files.json'),([pscustomobject]@{Version='3.3.0-beta.1';Files=$installFiles} | ConvertTo-Json -Depth 5),[Text.UTF8Encoding]::new($false))
 if (-not $InnoCompiler) { $InnoCompiler=& (Join-Path $PSScriptRoot 'Get-InnoCompiler.ps1') }
@@ -68,6 +72,9 @@ try {
     $documentation+=@(Get-ChildItem -LiteralPath $repo -Filter 'README*.md' | ForEach-Object Name)
     $documentation+=@(Get-DistributionFiles | Where-Object { $_ -like 'docs/*' })
     $documentation+=@('docs/GITHUB_DELIVERY.md','docs/evidence/v32-preview-performance.json')
+    foreach($v33Doc in @('docs/INSTALLATION_V3_3.md','docs/TROUBLESHOOTING_V3_3.md','docs/TEST_RESULTS_V3_3.md','docs/PERFORMANCE_V3_3.md')) {
+        if(Test-Path -LiteralPath (Join-Path $repo $v33Doc) -PathType Leaf) { $documentation+=$v33Doc }
+    }
     $documentation+=@(Get-ChildItem -LiteralPath (Join-Path $repo 'docs/evidence') -Filter 'github-delivery-*.json' | ForEach-Object { 'docs/evidence/'+$_.Name })
     $documentation+=@(Get-ChildItem -LiteralPath (Join-Path $repo 'docs/images') -File | ForEach-Object { 'docs/images/'+$_.Name })
     $pairs=@([pscustomobject]@{Path=$exe;Name='WiFiProxyPilot.exe'})
@@ -78,6 +85,8 @@ try {
 } finally { $z.Dispose(); $s.Dispose() }
 $lines=@(); foreach ($name in @('WiFiProxyPilot-Setup-x64.exe','WiFiProxyPilot-Portable-x64.zip')) { $lines += ((Get-FileHash -LiteralPath (Join-Path $dist $name) -Algorithm SHA256).Hash.ToLowerInvariant()+'  '+$name) }
 [IO.File]::WriteAllText((Join-Path $dist 'SHA256.txt'),(($lines -join "`n")+"`n"),[Text.UTF8Encoding]::new($false))
-$build=[ordered]@{Version='3.3.0-beta.1';TimeUtc=[DateTimeOffset]::UtcNow.ToString('o');Compiler='Inno Setup 7.1.0';ProgramName='WiFiProxyPilot.exe';InstallOwner='Inno';EngineOwner='WiFiProxySwitcher-v1';InstalledRuntime='unbundled self-contained';PortableRuntime='single-file self-contained';Checksums=$lines}
+$sourceCommit=(& git -C $repo rev-parse HEAD | Out-String).Trim()
+$worktreeDirty=(-not [string]::IsNullOrWhiteSpace((& git -C $repo status --porcelain | Out-String)))
+$build=[ordered]@{Version='3.3.0-beta.1';SourceCommit=$sourceCommit;WorktreeDirty=$worktreeDirty;TimeUtc=[DateTimeOffset]::UtcNow.ToString('o');Compiler='Inno Setup 7.1.0';ProgramName='WiFiProxyPilot.exe';InstallOwner='Inno';EngineOwner='WiFiProxySwitcher-v1';InstalledRuntime='unbundled self-contained';PortableRuntime='single-file self-contained';Checksums=$lines}
 [IO.File]::WriteAllText((Join-Path $generated 'build-record.json'),($build | ConvertTo-Json -Depth 4),[Text.UTF8Encoding]::new($false))
 Write-Output ('发布产物: '+$dist)

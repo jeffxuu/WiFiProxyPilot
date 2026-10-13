@@ -53,13 +53,13 @@ internal static class Program
             var r = controller.Execute(options).GetAwaiter().GetResult();
             if (r.Code == "RestoreConflict" && !options.Quiet)
             {
-                var answer = MessageBox.Show(Localization.Text("ProxyConflictBody"), Localization.Text("ProxyConflictTitle"), MessageBoxButtons.YesNoCancel, MessageBoxIcon.Warning);
-                if (answer == DialogResult.Yes) r = controller.Execute(options with { Force = true }).GetAwaiter().GetResult();
-                else if (answer == DialogResult.No && options.Command == "uninstall") r = controller.Execute(options with { Keep = true }).GetAwaiter().GetResult();
+                var answer = ConfirmationDialog.RestoreChoice(Localization.Text("ProxyConflictBody"), Localization.Text("ProxyConflictTitle"));
+                if (answer == System.Windows.MessageBoxResult.Yes) r = controller.Execute(options with { Force = true }).GetAwaiter().GetResult();
+                else if (answer == System.Windows.MessageBoxResult.No && options.Command == "uninstall") r = controller.Execute(options with { Keep = true }).GetAwaiter().GetResult();
             }
             Console.WriteLine(JsonSerializer.Serialize(r));
             if (options.WorkerPid != 0) File.WriteAllText(Path.Combine(AppController.ControlDir, "uninstall-result.json"), JsonSerializer.Serialize(r));
-            if (!options.Quiet) MessageBox.Show(r.Succeeded ? Localization.Text("OperationCompleted") : Localization.Error(new UiOperationException(r.Code)), "WiFi Proxy Pilot", MessageBoxButtons.OK, r.Succeeded ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
+            if (!options.Quiet) ConfirmationDialog.Alert(r.Succeeded ? Localization.Text("OperationCompleted") : Localization.Error(new UiOperationException(r.Code)), "WiFi Proxy Pilot", !r.Succeeded);
             return r.Succeeded ? 0 : r.Code == "RestoreConflict" ? 20 : 1;
         }
         catch (Exception ex)
@@ -74,7 +74,7 @@ internal static class Program
             }
             catch (Exception logError) { Console.Error.WriteLine("日志写入失败: " + logError.Message); }
             Console.Error.WriteLine(ex.Message);
-            if (!quiet) MessageBox.Show(Localization.Error(ex), "WiFi Proxy Pilot", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            if (!quiet) ConfirmationDialog.Alert(Localization.Error(ex), "WiFi Proxy Pilot", true);
             return 1;
         }
     }

@@ -34,7 +34,7 @@ function Install-DesktopFiles([string]$Root,[string]$SourceExe) {
     if (-not (Test-Path -LiteralPath $SourceExe -PathType Leaf) -or [IO.Path]::GetExtension($SourceExe) -ine '.exe') { throw '桌面 EXE 文件不存在' }
     $old=Read-DesktopInstall $Root; Assert-DesktopRegistration $Root $old
     $hash=(Get-FileHash -LiteralPath $SourceExe -Algorithm SHA256).Hash.ToUpperInvariant()
-    $rel='app/3.2.0-'+$hash.Substring(0,12)+'/WiFiProxySwitcher.exe'; $dest=Join-Path $Root $rel
+    $rel='app/3.3.0-'+$hash.Substring(0,12)+'/WiFiProxySwitcher.exe'; $dest=Join-Path $Root $rel
     Assert-PlainPath $dest
     if (Test-Path -LiteralPath $dest) {
         if ((Get-FileHash -LiteralPath $dest -Algorithm SHA256).Hash -cne $hash) { throw '版本目录已被其他文件占用，拒绝覆盖' }
@@ -54,7 +54,7 @@ function Install-DesktopFiles([string]$Root,[string]$SourceExe) {
 function Register-DesktopEntries([string]$Root,[string]$dest) {
     $key=[Microsoft.Win32.Registry]::CurrentUser.CreateSubKey($script:DesktopUninstallKey)
     try {
-        foreach ($pair in @(@('DisplayName','WiFi Proxy Pilot'),@('DisplayVersion','3.2.0-beta.1'),@('Publisher','WiFi Proxy Pilot contributors'),@('OwnerSid',(Get-UserSid)),@('InstallLocation',$Root),@('DisplayIcon',$dest),@('UninstallString',('"'+$dest+'" /uninstall')), @('QuietUninstallString',('"'+$dest+'" /uninstall /quiet')))) { $key.SetValue($pair[0],$pair[1],[Microsoft.Win32.RegistryValueKind]::String) }
+        foreach ($pair in @(@('DisplayName','WiFi Proxy Pilot'),@('DisplayVersion','3.3.0-beta.1'),@('Publisher','WiFi Proxy Pilot contributors'),@('OwnerSid',(Get-UserSid)),@('InstallLocation',$Root),@('DisplayIcon',$dest),@('UninstallString',('"'+$dest+'" /uninstall')), @('QuietUninstallString',('"'+$dest+'" /uninstall /quiet')))) { $key.SetValue($pair[0],$pair[1],[Microsoft.Win32.RegistryValueKind]::String) }
         $key.SetValue('NoModify',1,[Microsoft.Win32.RegistryValueKind]::DWord); $key.SetValue('NoRepair',1,[Microsoft.Win32.RegistryValueKind]::DWord)
     } finally { $key.Dispose() }
     $shortcut=Get-DesktopShortcut; [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($shortcut)) | Out-Null
@@ -125,7 +125,25 @@ function Assert-InstallerDesktopDirectory([string]$Directory) {
     if ($owner.Product -cne 'WiFiProxyPilot-Inno-v1' -or $owner.OwnerSid -cne (Get-UserSid) -or $owner.AppId -cne '{15F7908C-5C54-4D45-9343-1973BFEA3B47}' -or -not [string]::Equals($owner.AppDir,$directory,[StringComparison]::OrdinalIgnoreCase)) { throw 'Installer ownership record does not match this user/directory' }
     $exe=Join-Path $directory 'WiFiProxyPilot.exe'; Assert-PlainPath $exe
     if (-not (Test-Path -LiteralPath $exe -PathType Leaf)) { throw 'Installed application is missing; repair Setup before enabling tray startup' }
+    Assert-InstallerApplicationFiles $owner | Out-Null
     return $owner
+}
+function Assert-InstallerApplicationFiles($Owner) {
+    $directory=[IO.Path]::GetFullPath($Owner.AppDir).TrimEnd('\')
+    $receiptPath=Join-Path $directory 'installer-files.json'; Assert-PlainPath $receiptPath
+    if ($null -eq $Owner.PSObject.Properties['ReceiptSha256'] -or $Owner.ReceiptSha256 -cnotmatch '^[A-F0-9]{64}$' -or (Get-FileHash -LiteralPath $receiptPath -Algorithm SHA256).Hash -cne $Owner.ReceiptSha256) { Throw-ProductError 'InstallerAppModified' 'Installed file receipt changed or is missing; program files were preserved. Review or repair the installation.' }
+    $receipt=Get-Content -LiteralPath $receiptPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    $known=@{}
+    foreach ($file in $receipt.Files) {
+        if ($file.Path -match '(^|/)\.\.?(/|$)' -or $file.Path -match '[:\\\r\n]' -or $file.Path.StartsWith('/') -or $file.Hash -cnotmatch '^[A-F0-9]{64}$' -or $known.ContainsKey($file.Path)) { Throw-ProductError 'InstallerAppModified' 'Installed file receipt contains an invalid path or hash' }
+        $path=Join-Path $directory $file.Path; Assert-PlainPath $path
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf) -or (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -cne $file.Hash) { Throw-ProductError 'InstallerAppModified' ('An installed program file changed or is missing; preserving files and refusing execution: '+$file.Path) }
+        $known[$file.Path]=$file.Hash
+    }
+    if (-not $known.ContainsKey('WiFiProxyPilot.exe')) { Throw-ProductError 'InstallerAppModified' 'Installed file receipt does not own the application executable' }
+    $uninstaller=Join-Path $directory 'unins000.exe'; Assert-PlainPath $uninstaller
+    if ($null -eq $Owner.PSObject.Properties['UninstallerSha256'] -or $Owner.UninstallerSha256 -cnotmatch '^[A-F0-9]{64}$' -or -not (Test-Path -LiteralPath $uninstaller -PathType Leaf) -or (Get-FileHash -LiteralPath $uninstaller -Algorithm SHA256).Hash -cne $Owner.UninstallerSha256) { Throw-ProductError 'InstallerAppModified' 'Uninstaller changed or is missing; refusing to launch or remove unverified program files' }
+    return $known
 }
 function Set-InstallerTrayLogin($Owner,[bool]$Enabled) {
     $checked=Assert-InstallerDesktopDirectory $Owner.AppDir

@@ -182,6 +182,7 @@ internal sealed class AppController : IDisposable
                     !string.Equals(data.GetProperty("AppDir").GetString(), directory, StringComparison.OrdinalIgnoreCase) ||
                     data.GetProperty("AppId").GetString() != "{15F7908C-5C54-4D45-9343-1973BFEA3B47}")
                     throw new IOException("Installer ownership could not be verified. Nothing was removed.");
+                VerifyInstallerReceipt(directory, data);
                 string uninstaller = Path.Combine(directory, "unins000.exe"); SafeFiles.PlainPath(uninstaller);
                 var info = new ProcessStartInfo(uninstaller) { UseShellExecute = false };
                 // Proxy disposition and user-data retention are chosen in the uninstaller itself.
@@ -205,6 +206,33 @@ internal sealed class AppController : IDisposable
         if (o.Quiet) p.ArgumentList.Add("/quiet"); if (o.Force) p.ArgumentList.Add("/force-restore"); if (o.Keep) p.ArgumentList.Add("/keep-current");
         using var child = Process.Start(p) ?? throw new IOException("无法启动卸载程序");
         return true; // Legacy worker must wait for this executable to release its file.
+    }
+    private static void VerifyInstallerReceipt(string directory, JsonElement owner)
+    {
+        try
+        {
+            string receiptPath = Path.Combine(directory, "installer-files.json"); SafeFiles.PlainPath(receiptPath);
+            if (!string.Equals(SafeFiles.Hash(receiptPath), owner.GetProperty("ReceiptSha256").GetString(), StringComparison.OrdinalIgnoreCase))
+                throw new IOException("The installed file receipt changed.");
+            using var stream = File.OpenRead(receiptPath);
+            if (stream.Length > 1024 * 1024) throw new IOException("The installed receipt exceeds the size limit.");
+            using var receipt = JsonDocument.Parse(stream);
+            var known = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var file in receipt.RootElement.GetProperty("Files").EnumerateArray())
+            {
+                string name = file.GetProperty("Path").GetString() ?? throw new IOException("Missing installed file path.");
+                if (!known.Add(name) || known.Count > 1024) throw new IOException("Invalid installed file count or duplicate path.");
+                string path = SafeFiles.Under(directory, name);
+                if (!string.Equals(SafeFiles.Hash(path), file.GetProperty("Hash").GetString(), StringComparison.OrdinalIgnoreCase))
+                    throw new IOException("An installed program file changed: " + name);
+            }
+            if (!known.Contains("WiFiProxyPilot.exe")) throw new IOException("The receipt does not own the application executable.");
+            string uninstaller = Path.Combine(directory, "unins000.exe"); SafeFiles.PlainPath(uninstaller);
+            if (!string.Equals(SafeFiles.Hash(uninstaller), owner.GetProperty("UninstallerSha256").GetString(), StringComparison.OrdinalIgnoreCase))
+                throw new IOException("The uninstaller changed.");
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException or KeyNotFoundException)
+        { throw new UiOperationException("InstallerAppModified", error.Message); }
     }
     internal static void WaitForParent(Options options)
     {

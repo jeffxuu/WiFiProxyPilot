@@ -36,7 +36,7 @@ internal static class DesktopVerification
         string revision = ConfigurationStore.Read(root).Revision;
         File.WriteAllText(Path.Combine(root, "state", "status.json"), JsonSerializer.Serialize(new
         {
-            Time = time ?? DateTimeOffset.Now, EngineVersion = "3.2.0-beta.1", SchemaVersion = 2,
+            Time = time ?? DateTimeOffset.Now, EngineVersion = "3.3.0-beta.1", SchemaVersion = 2,
             ManagementIntent = "Monitoring", SetupComplete = true, SSID = "Mobile Hotspot", NetworkKind = "Connected",
             Gateway = "192.0.2.1", InterfaceGuid = "11111111-1111-1111-1111-111111111111", Outcome = "Enable", RuleAction = "Enable",
             Stable = true, ActualEnabled = true, ActualServer = "192.0.2.1:7890", ConfigRevision = revision, AppliedRevision = revision,
@@ -257,7 +257,7 @@ internal static class DesktopVerification
                 });
                 await Test("Logs are loaded on demand and status refresh is measured", async () =>
                 {
-                    host.Open("Logs"); await WaitForStatus(() => vm.Logs.Contains("隔离演示数据"));
+                    host.Open("Logs"); await WaitForStatus(() => vm.Logs.Contains(Localization.Text("WatcherLogHeading")) && vm.Logs.Contains("Mobile Hotspot"));
                     host.Open("Dashboard"); var clock = Stopwatch.StartNew(); var sample = await Task.Run(() => StatusReader.Read()); refreshMilliseconds = clock.Elapsed.TotalMilliseconds; Check(sample.Fresh);
                 });
                 await Test("Dark WPF dashboard renders", async () =>
@@ -278,7 +278,7 @@ internal static class DesktopVerification
             {
                 File.WriteAllText(output, JsonSerializer.Serialize(new
                 {
-                    Version = "3.2.0-beta.1", Total = results.Count, Passed = results.Count - failed, Failed = failed, Results = results, Captures = captures,
+                    Version = "3.3.0-beta.1", Total = results.Count, Passed = results.Count - failed, Failed = failed, Results = results, Captures = captures,
                     StatusRefreshMilliseconds = refreshMilliseconds, Windows = true, UI = "Actual WPF application and render tree", ProxyWritten = false, TaskWritten = false,
                     Network = "Isolated synthetic SSID and documentation IPv4 address", Explorer = "TaskbarCreated message only; Explorer was not restarted", RealNetworkIntegration = "NOT RUN", Fixture = fixture
                 }, new JsonSerializerOptions { WriteIndented = true }));

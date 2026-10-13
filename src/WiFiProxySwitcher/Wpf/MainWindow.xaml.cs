@@ -24,8 +24,9 @@ public partial class PilotWindow : Window
         Application.Current.Resources.MergedDictionaries.Add(design);
         StartupMetrics.Value("ThemeLoadMilliseconds", load.Elapsed.TotalMilliseconds); load.Restart();
         ViewModel = model; InitializeComponent(); DataContext = model;
-        Icon = AppIcons.CreateWindowIcon();
         StartupMetrics.Value("WindowXamlMilliseconds", load.Elapsed.TotalMilliseconds); load.Restart();
+        Icon = AppIcons.CreateWindowIcon();
+        StartupMetrics.Value("WindowIconMilliseconds", load.Elapsed.TotalMilliseconds); load.Restart();
         model.PropertyChanged += Changed; model.ThemeChanged += ApplyTheme;
         SourceInitialized += (_, _) => SetNativeAppearance();
         ContentRendered += (_, _) => { StartupMetrics.Mark("FirstPaint"); };

@@ -72,7 +72,7 @@ internal sealed class PilotViewModel : ObservableModel, IDisposable
     private ConfigurationDocument? configuration;
     private StatusView? status;
     private Task? initialization;
-    private bool busy, refreshing, errorsOnly;
+    private bool busy, refreshing, errorsOnly, pendingMayNotify = true;
     private string page = "Dashboard", logs = "", pending = "", messageKey = "ReadingInstall";
     private object?[] messageArguments = [];
     public NetworkRulesViewModel Rules { get; } = new();
@@ -87,7 +87,7 @@ internal sealed class PilotViewModel : ObservableModel, IDisposable
     public event Action<string>? ThemeChanged;
     public string Page { get => page; private set { Set(ref page, value); Changed(nameof(PageTitle)); } }
     public string PageTitle => Localization.Text(Page switch { "Rules" => "NavRules", "Settings" => "NavSettings", "Logs" => "NavLogs", "Setup" => "SetupTitle", _ => "NavOverview" });
-    public string Message => Localization.Format(messageKey, messageArguments);
+    public string Message => Localization.Format(messageKey, messageArguments.Select(value => value is Exception error ? Localization.Error(error) : value).ToArray());
     public string Logs { get => logs.Length == 0 ? Localization.Text("NoLogs") : logs; private set => Set(ref logs, value); }
     public bool Busy { get => busy; private set { Set(ref busy, value); Action.Refresh(); ToggleAutomatic.Refresh(); EditRule.Refresh(); DeleteRule.Refresh(); Changed(nameof(AutomaticLabel)); Changed(nameof(AutomaticEnabled)); Changed(nameof(AutomaticControlEnabled)); Changed(nameof(DashboardAutomaticStatus)); } }
     public bool ErrorsOnly { get => errorsOnly; set { Set(ref errorsOnly, value); _ = RefreshAsync(); } }
@@ -140,15 +140,20 @@ internal sealed class PilotViewModel : ObservableModel, IDisposable
         Settings.PreferenceError += PreferenceError;
     }
     private void SetMessage(string key, params object?[] args) { messageKey = key; messageArguments = args; Changed(nameof(Message)); }
-    private void LanguageChanged() { Changed(null); Rules.RefreshLocalized(); Settings.RefreshLocalized(); }
+    private void LanguageChanged() { Changed(null); Rules.RefreshLocalized(); Settings.RefreshLocalized(); if (Page == "Logs") _ = RefreshAsync(); }
     private void RulesChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e) => Changed(nameof(DraftNetworks));
     private void SettingsChanged(object? sender, PropertyChangedEventArgs e) { if (e.PropertyName == nameof(SettingsViewModel.Theme)) ThemeChanged?.Invoke(Settings.Theme); }
-    private void PreferenceError(Exception error) { StartupMetrics.Value("LanguagePreferenceError", error.ToString()); SetMessage("OperationFailed", Localization.Error(error)); }
+    private void PreferenceError(Exception error) { StartupMetrics.Value("LanguagePreferenceError", error.ToString()); SetMessage("OperationFailed", error); }
     internal Task InitializeAsync() => initialization ??= InitializeCore();
     private async Task InitializeCore()
     {
-        try { await Reload(); await RefreshAsync(); timer.Start(); if (IsDemo) SetMessage("DemoBanner"); }
-        catch (Exception e) { StartupMetrics.Value("InitializationError", e.Message); SetMessage("InitializationFailed", Localization.Error(e)); }
+        Exception? configurationError = null;
+        try { await Reload(); }
+        catch (Exception error) { configurationError = error; StartupMetrics.Value("InitializationError", error.Message); await services.RecordUiError("initialize", error); }
+        // Configuration failure must not suppress actual installation/status reads or the Logs page.
+        await RefreshAsync(); timer.Start();
+        if (configurationError != null) SetMessage("InitializationFailed", configurationError);
+        else if (IsDemo) SetMessage("DemoBanner");
     }
     private void Tick(object? sender, EventArgs e) => _ = RefreshAsync();
     private async Task Reload() { configuration = await services.ReadConfiguration(); Rules.Load(configuration.Whitelist); Settings.Load(configuration.Values); ThemeChanged?.Invoke(Settings.Theme); }
@@ -162,10 +167,10 @@ internal sealed class PilotViewModel : ObservableModel, IDisposable
             if (lifetime.IsCancellationRequested) return;
             status = next; if (Page == "Logs") Logs = next.Logs;
             Changed(null); ToggleAutomatic.Refresh();
-            if (pending.Length > 0 && next.Healthy && ConfigurationApplication.IsApplied(pending, new(next.Revision, next.AppliedRevision, next.EngineSchemaVersion, next.Healthy, next.Fresh))) { pending = ""; SetMessage("RulesApplied"); }
+            if (!Busy && pending.Length > 0 && next.Healthy && ConfigurationApplication.IsApplied(pending, new(next.Revision, next.AppliedRevision, next.EngineSchemaVersion, next.Healthy, next.Fresh))) { pending = ""; if (pendingMayNotify) SetMessage("RulesApplied"); }
             StatusChanged?.Invoke(next); StartupMetrics.Mark("FirstStatus"); StartupMetrics.Value("StatusRefreshMilliseconds", elapsed.Elapsed.TotalMilliseconds);
         }
-        catch (Exception e) { StartupMetrics.Value("StatusReadError", e.Message); SetMessage("ReadFailed", Localization.Error(e)); Changed(nameof(NetworkLabel)); }
+        catch (Exception e) { StartupMetrics.Value("StatusReadError", e.Message); SetMessage("ReadFailed", e); Changed(nameof(NetworkLabel)); }
         finally { refreshing = false; }
     }
     internal async Task Perform(string operation)
@@ -191,7 +196,7 @@ internal sealed class PilotViewModel : ObservableModel, IDisposable
                     if (configuration == null) throw new UiOperationException("ConfigurationNotLoaded");
                     var draft = (JsonObject)configuration.Values.DeepClone();
                     if (operation == "save-rules") draft["Whitelist"] = new JsonArray(Rules.Names.Select(n => (JsonNode?)JsonValue.Create(n)).ToArray()); else Settings.Write(draft);
-                    configuration = await services.Save(configuration, draft); pending = configuration.Revision;
+                    configuration = await services.Save(configuration, draft); pending = configuration.Revision; pendingMayNotify = true;
                     if (operation == "save-rules") Rules.Load(configuration.Whitelist);
                     if (operation == "save-settings" && status?.Installed == true && !IsDemo) Ensure(await services.Execute("settings"));
                     SetMessage(SetupNeeded ? "DraftSaved" : "SavedPending"); break;
@@ -218,10 +223,15 @@ internal sealed class PilotViewModel : ObservableModel, IDisposable
             }
             await services.RecordUiResult(operation, "Completed");
         }
-        catch (Exception e) { StartupMetrics.Value("UiOperationError", e.ToString()); await services.RecordUiResult(operation, "Failed", e is UiOperationException known ? known.Code : e is ConfigurationValidationException validation ? validation.Code : e.GetType().Name); SetMessage("OperationFailed", Localization.Error(e)); }
+        catch (Exception e) { pendingMayNotify = false; StartupMetrics.Value("UiOperationError", e.ToString()); await services.RecordUiResult(operation, "Failed", e is UiOperationException known ? known.Code : e is ConfigurationValidationException validation ? validation.Code : e.GetType().Name); await services.RecordUiError(operation, e); SetMessage("OperationFailed", e); }
         finally { Busy = false; await RefreshAsync(); }
     }
     private static void Ensure(CommandResult result) { if (!result.Succeeded) throw new UiOperationException(result.Code, result.Message); }
-    private static bool Confirm(string titleKey, string textKey, params object?[] args) => System.Windows.MessageBox.Show(Localization.Format(textKey, args), Localization.Text(titleKey), System.Windows.MessageBoxButton.OKCancel, System.Windows.MessageBoxImage.Information) == System.Windows.MessageBoxResult.OK;
+    private bool Confirm(string titleKey, string textKey, params object?[] args)
+    {
+        bool accepted = ConfirmationDialog.Confirm(Localization.Text(titleKey), Localization.Format(textKey, args));
+        if (!accepted) { pendingMayNotify = false; SetMessage("OperationCanceled"); }
+        return accepted;
+    }
     public void Dispose() { lifetime.Cancel(); timer.Stop(); timer.Tick -= Tick; Localization.Current.LanguageChanged -= LanguageChanged; Rules.Names.CollectionChanged -= RulesChanged; Settings.PropertyChanged -= SettingsChanged; Settings.PreferenceError -= PreferenceError; lifetime.Dispose(); }
 }

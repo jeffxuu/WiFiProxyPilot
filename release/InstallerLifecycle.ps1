@@ -52,7 +52,7 @@ function Test-InstallerRestoreConflict($Manifest) {
 function Stop-InstallerGui([string]$Directory,$Legacy) {
     $exe=Join-Path $Directory 'WiFiProxyPilot.exe'
     $running=@(Get-CimInstance Win32_Process -Filter "Name='WiFiProxyPilot.exe'" | Where-Object { [string]::Equals($_.ExecutablePath,$exe,[StringComparison]::OrdinalIgnoreCase) })
-    if ($running.Count -gt 0) {
+    if ($running.Count -gt 0 -or (Test-Path -LiteralPath (Join-Path $Directory 'installer-owned.json'))) {
         foreach ($candidate in $running) {
             $identity=Invoke-CimMethod -InputObject $candidate -MethodName GetOwnerSid
             if ($identity.ReturnValue -ne 0 -or $identity.Sid -cne (Get-UserSid)) { throw 'GUI process owner does not match the installing user' }
@@ -117,6 +117,7 @@ function Write-InstallerPending([string]$Directory) {
     $receipt=Get-Content -LiteralPath $filesPath -Raw -Encoding UTF8 | ConvertFrom-Json
     $pending=[pscustomobject]@{Product='WiFiProxyPilot-Inno-Pending-v1';OwnerSid=(Get-UserSid);AppDir=$Directory;AppId='{15F7908C-5C54-4D45-9343-1973BFEA3B47}';Version=$receipt.Version;Files=$receipt.Files}
     [IO.Directory]::CreateDirectory($Directory) | Out-Null
+    Protect-InstallDirectory $Directory
     Write-JsonAtomic (Join-Path $Directory 'installer-pending.json') $pending
 }
 function Invoke-InstallerPrepare([string]$Directory) {
@@ -124,6 +125,14 @@ function Invoke-InstallerPrepare([string]$Directory) {
     $existing=Read-InstallerDesktop
     if ($null -ne $existing -and -not [string]::Equals($existing.AppDir,$directory,[StringComparison]::OrdinalIgnoreCase)) { throw 'An existing per-user installation has another program directory; upgrade at its existing location' }
     if ((Test-Path -LiteralPath $directory) -and $null -eq $existing -and @(Get-ChildItem -LiteralPath $directory -Force).Count -and -not (Assert-InstallerPending $directory)) { throw 'Target directory contains unowned files; choose an empty application directory' }
+    if ($null -ne $existing) {
+        $owned=Assert-InstallerApplicationFiles $existing
+        $incoming=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'installer-files.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+        foreach ($file in $incoming.Files) {
+            $path=Join-Path $directory $file.Path; Assert-PlainPath $path
+            if ((Test-Path -LiteralPath $path) -and -not $owned.ContainsKey($file.Path)) { Throw-ProductError 'InstallerAppModified' ('A new program path is occupied by an unowned file; preserving it: '+$file.Path) }
+        }
+    }
     $manifest=Get-InstallerEngine; $legacy=Assert-InstallerLegacy $manifest
     foreach ($name in Get-DistributionFiles) { if (-not (Test-Path -LiteralPath (Join-Path $EngineSource $name) -PathType Leaf)) { throw ('Installer engine payload is incomplete: '+$name) } }
     Stop-InstallerGui $directory $legacy
@@ -148,7 +157,7 @@ function Invoke-InstallerCommit([string]$Directory) {
             Remove-DesktopFiles $legacy
         }
     }
-    $owner=[pscustomobject]@{Product='WiFiProxyPilot-Inno-v1';OwnerSid=(Get-UserSid);AppDir=$directory;Version='3.3.0-beta.1';AppId='{15F7908C-5C54-4D45-9343-1973BFEA3B47}'}
+    $owner=[pscustomobject]@{Product='WiFiProxyPilot-Inno-v1';OwnerSid=(Get-UserSid);AppDir=$directory;Version='3.3.0-beta.1';AppId='{15F7908C-5C54-4D45-9343-1973BFEA3B47}';ReceiptSha256=(Get-FileHash -LiteralPath (Join-Path $directory 'installer-files.json') -Algorithm SHA256).Hash;UninstallerSha256=(Get-FileHash -LiteralPath (Join-Path $directory 'unins000.exe') -Algorithm SHA256).Hash}
     Write-JsonAtomic (Join-Path $directory 'installer-owned.json') $owner
     $key=[Microsoft.Win32.Registry]::CurrentUser.CreateSubKey('Software\WiFiProxySwitcher')
     try { $key.SetValue('DesktopOwner','Inno'); $key.SetValue('DesktopAppDir',$directory) } finally { $key.Dispose() }
@@ -162,14 +171,17 @@ function Invoke-InstallerCommit([string]$Directory) {
     return @{AppDir=$directory;EngineRoot=$(if ($null -ne $manifest) { $manifest.Root } else { '' });ProxyModified=$false;InstallationOwner='Inno'}
 }
 function Get-InstallerRetentionRoot { return Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'WiFiProxyPilot-Retained' }
+function Get-InstallerUiDataRoot { return Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'WiFiProxySwitcher-Control' }
+function Get-InstallerUiDataNames { return @('preferences.json','draft-config.json','control-errors.log','control-errors.log.1','commands.jsonl','commands.jsonl.1','desktop-errors.log','desktop-errors.log.1') }
 function Save-InstallerUserData($Manifest,[bool]$Delete) {
     # Copy durable user data to a separate, named retention directory before engine cleanup.
     # Never recursively delete an application data root, including when delete was selected.
     $retained=Get-InstallerRetentionRoot
     $target=Join-Path $retained ('uninstall-'+[DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss')+'-'+[Guid]::NewGuid().ToString('N'))
     Assert-PlainPath $target
-    $files=@('config.json','config.json.previous','state/proxy-before-install.json')
-    if (Test-Path -LiteralPath (Join-Path $Manifest.Root 'logs')) {
+    $files=@()
+    if ($null -ne $Manifest) { $files=@('config.json','config.json.previous','state/proxy-before-install.json') }
+    if ($null -ne $Manifest -and (Test-Path -LiteralPath (Join-Path $Manifest.Root 'logs'))) {
         $files+=@(Get-ChildItem -LiteralPath (Join-Path $Manifest.Root 'logs') -File | Where-Object { $_.Name -match '^watcher\.jsonl(\.[0-9]+)?$' } | ForEach-Object { 'logs/'+$_.Name })
     }
     if (-not $Delete) {
@@ -177,13 +189,24 @@ function Save-InstallerUserData($Manifest,[bool]$Delete) {
             $source=Join-Path $Manifest.Root $name; Assert-PlainPath $source
             if (Test-Path -LiteralPath $source) { Copy-UpgradeFileAtomic $source (Join-Path $target $name) }
         }
+        $uiRoot=Get-InstallerUiDataRoot
+        foreach ($name in Get-InstallerUiDataNames) {
+            $source=Join-Path $uiRoot $name; Assert-PlainPath $source
+            if (Test-Path -LiteralPath $source) { Copy-UpgradeFileAtomic $source (Join-Path $target ('ui/'+$name)) }
+        }
         return $target
     }
     return ''
 }
 function Remove-InstallerChosenData($Manifest) {
-    foreach ($name in @('config.json','config.json.previous')) {
-        $path=Join-Path $Manifest.Root $name; Assert-PlainPath $path
+    if ($null -ne $Manifest) {
+        foreach ($name in @('config.json','config.json.previous')) {
+            $path=Join-Path $Manifest.Root $name; Assert-PlainPath $path
+            if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Force }
+        }
+    }
+    foreach ($name in Get-InstallerUiDataNames) {
+        $path=Join-Path (Get-InstallerUiDataRoot) $name; Assert-PlainPath $path
         if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Force }
     }
 }
@@ -193,16 +216,15 @@ function Invoke-InstallerUninstall([string]$Directory,[string]$Choice,[bool]$Del
     $legacy=$null; if ($null -ne $manifest) { $legacy=Assert-InstallerLegacy $manifest }
     # All choices and restore checks happen before the GUI, watcher, intent or task changes.
     if ($Choice -notin @('Restore','Keep')) { throw 'Uninstall canceled; no changes were made' }
+    $retained=Save-InstallerUserData $manifest $Delete
     Stop-InstallerGui $owner.AppDir $legacy
-    $retained=''
+    Set-InstallerTrayLogin $owner $false
     if ($null -ne $manifest) {
-        $retained=Save-InstallerUserData $manifest $Delete
         Uninstall-Product $manifest -KeepCurrentProxy:($Choice -eq 'Keep') -ForceRestore:($Choice -eq 'Restore') -DeleteLogs:$Delete
         if ($null -ne $legacy) { Remove-DesktopFiles $legacy }
-        if ($Delete) { Remove-InstallerChosenData $manifest }
         if ($null -ne (Get-OwnedTask $manifest) -or (Get-InstalledRoot)) { throw 'Engine uninstall verification failed: task or pointer remains' }
     }
-    Set-InstallerTrayLogin $owner $false
+    if ($Delete) { Remove-InstallerChosenData $manifest }
     $key=[Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Software\WiFiProxySwitcher',$true)
     if ($null -ne $key) {
         try {
@@ -232,10 +254,14 @@ try {
         'Uninstall' { $result.Data=Invoke-InstallerUninstall $AppDir $ProxyChoice ([bool]$DeleteUserData) }
     }
     if ($exitCode -ne 20) { $exitCode=0; $result.Code='Completed'; $result.Succeeded=$true }
-} catch { $result.Message=$_.Exception.Message; Write-ControlFailure ('Installer/'+$Action) $_.Exception.Message }
+} catch {
+    $result.Message=$_.Exception.Message
+    if ($_.Exception.Data.Contains('WiFiProxyCode')) { $result.Code=[string]$_.Exception.Data['WiFiProxyCode'] }
+    Write-ControlFailure ('Installer/'+$Action) $_.Exception.Message
+}
 finally { if ($taken) { $gate.ReleaseMutex() }; if ($null -ne $gate) { $gate.Dispose() } }
 if ($ResultPath) {
-    try { Write-JsonAtomic $ResultPath $result }
+    try { Write-JsonAtomic $ResultPath $result -Compress }
     catch { Write-ControlFailure 'Installer/Result' $_.Exception.Message; $exitCode=1 }
 }
 exit $exitCode

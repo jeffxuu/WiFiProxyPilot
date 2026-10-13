@@ -1,5 +1,10 @@
 ﻿Set-StrictMode -Version 2.0
 
+function Throw-ProductError([string]$Code,[string]$Message) {
+    $failure=[InvalidOperationException]::new($Message)
+    $failure.Data['WiFiProxyCode']=$Code
+    throw $failure
+}
 function Read-ConfigurationBytes([string]$Path) {
     $stream=[IO.FileStream]::new($Path,[IO.FileMode]::Open,[IO.FileAccess]::Read,([IO.FileShare]::ReadWrite -bor [IO.FileShare]::Delete))
     $memory=[IO.MemoryStream]::new()
@@ -172,10 +177,10 @@ function Update-ProxyHealth($State,[string]$Result,[int]$Threshold) {
     }
 }
 
-function Write-JsonAtomic([string]$Path,$Value,[string]$BackupPath='') {
+function Write-JsonAtomic([string]$Path,$Value,[string]$BackupPath='',[switch]$Compress) {
     $tmp = $Path + '.tmp.' + [Guid]::NewGuid().ToString('N')
     try {
-        [IO.File]::WriteAllText($tmp,($Value | ConvertTo-Json -Depth 12),[Text.UTF8Encoding]::new($true))
+        [IO.File]::WriteAllText($tmp,($Value | ConvertTo-Json -Depth 12 -Compress:$Compress),[Text.UTF8Encoding]::new($true))
         for ($attempt=0;$attempt -lt 6;$attempt++) {
             try {
                 if (Test-Path -LiteralPath $Path) { if ($BackupPath) { [IO.File]::Replace($tmp,$Path,$BackupPath) } else { [IO.File]::Replace($tmp,$Path,[NullString]::Value) } } else { [IO.File]::Move($tmp,$Path) }

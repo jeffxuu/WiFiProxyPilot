@@ -13,12 +13,14 @@ internal static class Program
 {
     private static readonly List<object> Results = new();
     private static readonly List<object> InputEvents = new();
+    private static readonly List<object> Captures = new();
     private static int failures;
     private static AutomationElement window = null!;
     [DllImport("user32.dll")] private static extern bool SetProcessDpiAwarenessContext(IntPtr context);
     [DllImport("user32.dll")] private static extern IntPtr SetThreadDpiAwarenessContext(IntPtr context);
     [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr hwnd);
     [DllImport("user32.dll")] private static extern bool PrintWindow(IntPtr hwnd, IntPtr hdc, uint flags);
+    [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
     [DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr hwnd, int command);
     [DllImport("user32.dll")] private static extern bool PostMessage(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam);
     [STAThread]
@@ -28,6 +30,7 @@ internal static class Program
         // virtualization so a click lands on the control at 125/150/200% scaling.
         _ = SetProcessDpiAwarenessContext(new IntPtr(-4));
         _ = SetThreadDpiAwarenessContext(new IntPtr(-4));
+        if (args.Contains("--installer-wizard")) return SetupWizard.Run(args);
         if (args.Length < 2) throw new ArgumentException("EXE path and evidence directory required; optional --installed, --setup-only or --backend-failure.");
         string exe = Path.GetFullPath(args[0]), evidence = Path.GetFullPath(args[1]); Directory.CreateDirectory(evidence);
         bool setupOnly = args.Contains("--setup-only"), backendFailure = args.Contains("--backend-failure");
@@ -42,7 +45,7 @@ internal static class Program
         {
             Wait(() => { process.Refresh(); hwnd = process.MainWindowHandle; return hwnd != IntPtr.Zero; }, 30000);
             window = AutomationElement.FromHandle(hwnd);
-            CaptureText(evidence, "startup-controls");
+            Thread.Sleep(300); CaptureText(evidence, "startup-controls");
             Test("Actual WPF window opens", () => Assert(window.Current.Name == "WiFi Proxy Pilot"));
             Wait(() => Find("NavRules", false) != null, 15000);
             if (setupOnly)
@@ -70,7 +73,7 @@ internal static class Program
                     Assert(Configuration(true, evidence).GetProperty("ManagementIntent").GetString() == "Paused");
                     Assert(((TogglePattern)Find("AutomaticToggle")!.GetCurrentPattern(TogglePattern.Pattern)).Current.ToggleState == ToggleState.Off);
                     string message = Find("StatusMessage")!.Current.Name;
-                    Assert(message.StartsWith("Operation failed", StringComparison.Ordinal) || message.StartsWith("操作失败", StringComparison.Ordinal));
+                    Assert(message.Contains("InstallOwnershipMismatch", StringComparison.Ordinal));
                     File.Copy(tracePath, Path.Combine(evidence, "actual-backend-failure-trace.jsonl"), true);
                     CaptureText(evidence, "actual-backend-failure");
                 });
@@ -78,6 +81,10 @@ internal static class Program
             }
             Test("Native right caption maximize and restore", () =>
             {
+                var closeBounds = NativeCaption("Close").Current.BoundingRectangle;
+                var windowBounds = window.Current.BoundingRectangle;
+                Assert(closeBounds.Right > windowBounds.Right - 32 && closeBounds.Top < windowBounds.Top + 64);
+                File.WriteAllText(Path.Combine(evidence, "native-caption-bounds.json"), JsonSerializer.Serialize(new { WindowLeft = windowBounds.Left, WindowRight = windowBounds.Right, WindowTop = windowBounds.Top, CloseLeft = closeBounds.Left, CloseRight = closeBounds.Right, CloseTop = closeBounds.Top }));
                 Invoke(NativeCaption("Maximize", "MaximizeRestore")); Wait(() => Window().Current.WindowVisualState == WindowVisualState.Maximized);
                 // Re-query after state changes: native caption controls can be recreated.
                 Invoke(NativeCaption("Maximize", "MaximizeRestore", "Restore")); Wait(() => Window().Current.WindowVisualState == WindowVisualState.Normal);
@@ -133,6 +140,26 @@ internal static class Program
             Test("Theme switch through actual toolbar button", () => { Click("ThemeToggle"); Assert(!process.HasExited); });
             if (installed)
             {
+                Test("Chinese direct-mode confirmation Cancel preserves intent", () =>
+                {
+                    Select("NavOverview"); string before = Configuration(true, evidence).GetProperty("ManagementIntent").GetString()!;
+                    Click("RestoreDirect"); var dialog = Dialog(process.Id);
+                    Assert(DialogButton(dialog, "ConfirmCancel").Current.Name == "取消"); Invoke(DialogButton(dialog, "ConfirmCancel"));
+                    Wait(() => Find("AutomaticToggle")!.Current.IsEnabled); Assert(Configuration(true, evidence).GetProperty("ManagementIntent").GetString() == before);
+                });
+                Test("English direct confirmation executes real proxy control and WinINet disable", () =>
+                {
+                    Select("NavSettings"); SelectCombo("LanguageChoice", "English"); Select("NavOverview");
+                    Click("RestoreDirect"); var dialog = Dialog(process.Id);
+                    Assert(DialogButton(dialog, "ConfirmCancel").Current.Name == "Cancel"); Assert(DialogButton(dialog, "ConfirmAccept").Current.Name == "Continue");
+                    Invoke(DialogButton(dialog, "ConfirmAccept"));
+                    Wait(() => Configuration(true, evidence).GetProperty("ManagementIntent").GetString() == "Direct", 30000);
+                    Wait(() => Find("AutomaticToggle")!.Current.IsEnabled, 30000);
+                    using var proxy = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Internet Settings");
+                    Assert(Convert.ToInt32(proxy?.GetValue("ProxyEnable", 0)) == 0);
+                    Toggle("AutomaticToggle"); Wait(() => Heartbeat().GetProperty("ManagementIntent").GetString() == "Monitoring", 30000);
+                    Wait(() => Find("AutomaticToggle")!.Current.IsEnabled, 30000);
+                });
                 Test("Automatic pause click persists Paused and watcher acknowledgement", () =>
                 {
                     Select("NavOverview"); Toggle("AutomaticToggle"); Wait(() => Configuration(true, evidence).GetProperty("ManagementIntent").GetString() == "Paused", 30000);
@@ -174,7 +201,7 @@ internal static class Program
                 }
                 else { process.Kill(); process.WaitForExit(); }
             }
-            File.WriteAllText(Path.Combine(evidence, "uia-results.json"), JsonSerializer.Serialize(new { Total = Results.Count, Failed = failures, Results, Boundary = real ? "Real WPF/PowerShell/Watcher in disposable GitHub-hosted Windows" : "Actual WPF controls, isolated fixture; no Windows proxy/task mutation" }, new JsonSerializerOptions { WriteIndented = true }));
+            File.WriteAllText(Path.Combine(evidence, "uia-results.json"), JsonSerializer.Serialize(new { Total = Results.Count, Failed = failures, Results, Captures, Boundary = real ? "Real WPF/PowerShell/Watcher in disposable GitHub-hosted Windows" : "Actual WPF controls, isolated fixture; no Windows proxy/task mutation" }, new JsonSerializerOptions { WriteIndented = true }));
             File.WriteAllText(Path.Combine(evidence, "uia-input.json"), JsonSerializer.Serialize(InputEvents, new JsonSerializerOptions { WriteIndented = true }));
         }
         return failures == 0 ? 0 : 1;
@@ -203,6 +230,13 @@ internal static class Program
     private static void Toggle(string id) { Click(id); InputEvents.Add(new { Target = id, Pattern = "Invoke" }); }
     private static void Value(string id, string value) => ((ValuePattern)Find(id)!.GetCurrentPattern(ValuePattern.Pattern)).SetValue(value);
     private static WindowPattern Window() => (WindowPattern)window.GetCurrentPattern(WindowPattern.Pattern);
+    private static AutomationElement Dialog(int pid)
+    {
+        AutomationElement? dialog = null;
+        Wait(() => { dialog = AutomationElement.RootElement.FindFirst(TreeScope.Children, new AndCondition(new PropertyCondition(AutomationElement.ProcessIdProperty, pid), new PropertyCondition(AutomationElement.AutomationIdProperty, "PilotConfirmationDialog"))); return dialog != null; });
+        return dialog!;
+    }
+    private static AutomationElement DialogButton(AutomationElement dialog, string id) => dialog.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.AutomationIdProperty, id)) ?? throw new InvalidOperationException("Dialog control missing: " + id);
     private static void SelectCombo(string id, string name) { var e = Find(id)!; ((ExpandCollapsePattern)e.GetCurrentPattern(ExpandCollapsePattern.Pattern)).Expand(); Thread.Sleep(100); var item = e.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.NameProperty, name)); if (item == null) throw new InvalidOperationException("Combo item missing: " + name); ((SelectionItemPattern)item.GetCurrentPattern(SelectionItemPattern.Pattern)).Select(); }
     private static JsonElement Configuration(bool installed, string evidence) { string root = installed ? InstalledRoot() : Path.Combine(evidence, "fixture"); using var doc = JsonDocument.Parse(File.ReadAllText(Path.Combine(root, "config.json"))); return doc.RootElement.Clone(); }
     private static string InstalledRoot() { using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\WiFiProxySwitcher"); return key?.GetValue("InstallDir") as string ?? throw new IOException("No installed watcher root."); }
@@ -222,8 +256,26 @@ internal static class Program
             bool captured;
             try { captured = PrintWindow(new IntPtr(window.Current.NativeWindowHandle), hdc, 2); }
             finally { graphics.ReleaseHdc(hdc); }
-            if (!captured) throw new InvalidOperationException("Application HWND capture failed.");
-            bitmap.Save(Path.Combine(evidence, name + ".png"), System.Drawing.Imaging.ImageFormat.Png);
+            string source = "PrintWindow";
+            bool content = captured && HasClientPixels(bitmap);
+            if (!content && GetForegroundWindow() == new IntPtr(window.Current.NativeWindowHandle))
+            {
+                graphics.CopyFromScreen((int)bounds.X, (int)bounds.Y, 0, 0, bitmap.Size);
+                content = HasClientPixels(bitmap); source = "Foreground screen copy";
+            }
+            bitmap.Save(Path.Combine(evidence, name + (content ? ".png" : ".invalid-hwnd.png")), System.Drawing.Imaging.ImageFormat.Png);
+            Captures.Add(new { Name = name, ActualClientPixels = content, Source = source, Reason = content ? "Actual application pixels; visual review still required" : "Window content could not be captured; possible locked or occluded desktop" });
         }
+    }
+    private static bool HasClientPixels(System.Drawing.Bitmap bitmap)
+    {
+        var colors = new HashSet<int>();
+        for (int y = 60; y < bitmap.Height - 12; y += 8)
+            for (int x = 12; x < bitmap.Width - 12; x += 8)
+            {
+                colors.Add(bitmap.GetPixel(x, y).ToArgb());
+                if (colors.Count > 8) return true;
+            }
+        return false;
     }
 }

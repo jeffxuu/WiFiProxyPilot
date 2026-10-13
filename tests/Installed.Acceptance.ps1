@@ -9,6 +9,7 @@ if (-not $Setup) { $Setup=Join-Path $repo 'release/dist/WiFiProxyPilot-Setup-x64
 $Setup=[IO.Path]::GetFullPath($Setup); $OutputDirectory=[IO.Path]::GetFullPath($OutputDirectory)
 [IO.Directory]::CreateDirectory($OutputDirectory) | Out-Null
 . (Join-Path $repo 'lib/Core.ps1'); . (Join-Path $repo 'lib/Windows.ps1'); . (Join-Path $repo 'lib/Lifecycle.ps1'); . (Join-Path $repo 'lib/Desktop.ps1')
+. (Join-Path $repo 'lib/Monitor.ps1')
 Initialize-Windows
 $original=Get-ManualSnapshot; $automaticBefore=Read-SystemProxy
 Write-JsonAtomic (Join-Path $OutputDirectory 'original-proxy.json') $original
@@ -28,14 +29,26 @@ function Run([string]$Exe,[string[]]$Arguments,[int[]]$Codes=@(0)) {
 function Install([string]$Language='en-US') {
     Run $Setup @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',('/LANG='+$Language.Replace('-','_')),('/DIR="'+$appDir+'"'),'/TASKS=desktopicon',('/LOG="'+(Join-Path $OutputDirectory ('setup-'+$Language+'.log'))+'"')) | Out-Null
 }
+function WizardInstall([string]$Language) {
+    & $Dotnet run --project (Join-Path $repo 'tests/Desktop.Automation/Desktop.Automation.csproj') --configuration Release -- $Setup (Join-Path $OutputDirectory ('wizard-'+$Language)) --installer-wizard --language $Language --app-dir $appDir
+    Assert ($LASTEXITCODE -eq 0) ('Actual '+$Language+' Setup wizard interaction failed')
+}
 function Remove([string]$Proxy='restore',[string]$Delete='no') {
     Run (Join-Path $appDir 'unins000.exe') @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',('/PROXY='+$Proxy),('/DELETEUSERDATA='+$Delete),('/LOG="'+(Join-Path $OutputDirectory ('uninstall-'+$Proxy+'.log'))+'"')) | Out-Null
 }
 $arp='HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{15F7908C-5C54-4D45-9343-1973BFEA3B47}_is1'
 try {
     Assert (-not (Get-InstalledRoot)) 'Disposable test account unexpectedly has an existing installation; refusing destructive tests.'
+    Test 'Setup failure on an unowned nonempty path permits a safe retry' {
+        $blocked=Join-Path $OutputDirectory 'unowned target'; [IO.Directory]::CreateDirectory($blocked) | Out-Null
+        $foreign=Join-Path $blocked 'unrelated-user-file.txt'; [IO.File]::WriteAllText($foreign,'preserve this file')
+        Run $Setup @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',('/DIR="'+$blocked+'"'),('/LOG="'+(Join-Path $OutputDirectory 'setup-rejected.log')+'"')) @(1,2,5,7,8) | Out-Null
+        Assert ([IO.File]::ReadAllText($foreign) -eq 'preserve this file') 'Failed Setup altered an unowned file'
+        Assert (-not (Test-Path -LiteralPath $arp)) 'Failed preflight registered a competing installed application'
+        Assert (-not (Get-InstalledRoot)) 'Failed preflight activated the watcher'
+    }
     Test 'Final Setup EXE fresh install with Chinese/space path and no proxy activation' {
-        Install 'zh-CN'
+        WizardInstall 'en-US'
         Assert (Test-Path -LiteralPath (Join-Path $appDir 'WiFiProxyPilot.exe')) 'Installed executable missing'
         Assert (-not (Get-InstalledRoot)) 'Software installation must not activate the background engine'
         Assert (Test-RestoreAllowed (Get-ManualSnapshot) $original) 'Setup changed the original proxy'
@@ -51,7 +64,13 @@ try {
         }
         $entry | Select-Object DisplayName,DisplayVersion,Publisher,InstallLocation,DisplayIcon,UninstallString | ConvertTo-Json | Set-Content (Join-Path $OutputDirectory 'installed-app.json')
     }
-    Test 'Repeated final Setup retains one app registration' { Install 'en-US'; Assert (Test-Path -LiteralPath $arp) 'ARP entry lost' }
+    Test 'Repeated Chinese Setup wizard retains one app registration' { WizardInstall 'zh-CN'; Assert (Test-Path -LiteralPath $arp) 'ARP entry lost' }
+    Test 'Actual unconfigured automatic click opens setup without activating proxy' {
+        & $Dotnet run --project (Join-Path $repo 'tests/Desktop.Automation/Desktop.Automation.csproj') --configuration Release -- (Join-Path $appDir 'WiFiProxyPilot.exe') (Join-Path $OutputDirectory 'setup-uia') --setup-only
+        Assert ($LASTEXITCODE -eq 0) 'Unconfigured actual UIA failed'
+        Assert (-not (Get-InstalledRoot)) 'Setup navigation activated the backend without confirmation'
+        Assert (Test-RestoreAllowed (Get-ManualSnapshot) $original) 'Setup navigation changed proxy'
+    }
     Test 'Installed WPF actual UIA: pages, edit/save/cancel, language, demo control' {
         & $Dotnet run --project (Join-Path $repo 'tests/Desktop.Automation/Desktop.Automation.csproj') --configuration Release -- (Join-Path $appDir 'WiFiProxyPilot.exe') (Join-Path $OutputDirectory 'preview-uia')
         Assert ($LASTEXITCODE -eq 0) 'Actual preview UIA failed'
@@ -69,6 +88,20 @@ try {
         & $Dotnet run --project (Join-Path $repo 'tests/Desktop.Automation/Desktop.Automation.csproj') --configuration Release -- (Join-Path $appDir 'WiFiProxyPilot.exe') (Join-Path $OutputDirectory 'installed-uia') --installed
         Assert ($LASTEXITCODE -eq 0) 'Actual installed UIA failed'
     }
+    Test 'Real PowerShell failure is shown by the clicked WPF command without false success' {
+        $exe=Join-Path $appDir 'WiFiProxyPilot.exe'; Run $exe @('/pause','/quiet') | Out-Null
+        $root=Get-InstalledRoot; $manifest=Read-Install $root; Stop-OwnedWatcher $manifest
+        $path=Join-Path $root 'state/installation.json'; $bytes=[IO.File]::ReadAllBytes($path)
+        try {
+            # Corrupt the disposable test's ownership marker. Actual Control.ps1 must reject
+            # this before changing the Paused intent; no test flag bypasses ownership checks.
+            $fault=[Text.Encoding]::UTF8.GetString($bytes).TrimStart([char]0xFEFF) | ConvertFrom-Json
+            $fault.Product='FaultInjection.NonOwned'; Write-JsonAtomic $path $fault
+            & $Dotnet run --project (Join-Path $repo 'tests/Desktop.Automation/Desktop.Automation.csproj') --configuration Release -- $exe (Join-Path $OutputDirectory 'failure-uia') --backend-failure
+            Assert ($LASTEXITCODE -eq 0) 'Actual UI did not report the PowerShell ownership rejection correctly'
+        } finally { [IO.File]::WriteAllBytes($path,$bytes) }
+        Run $exe @('/resume','/quiet') | Out-Null
+    }
     Test 'Pause persists, then actual WinINet on/off/port/bypass readback' {
         $exe=Join-Path $appDir 'WiFiProxyPilot.exe'; Run $exe @('/pause','/quiet') | Out-Null
         $root=Get-InstalledRoot; Assert ((Read-Configuration (Join-Path $root 'config.json')).ManagementIntent -eq 'Paused') 'Intent not persisted'
@@ -80,6 +113,34 @@ try {
         }
         Set-TargetProxy ([pscustomobject]@{Action='Disable';Server=''}) | Out-Null; Assert (-not (Read-SystemProxy).Enable) 'Actual manual proxy disable failed'
         Assert (((Read-SystemProxy).Flags -band 12) -eq ($automaticBefore.Flags -band 12)) 'PAC/autodetect flags changed'
+    }
+    Test 'Production monitor decisions with injected network facts write and read actual WinINet' {
+        $root=Get-InstalledRoot; $config=Read-Configuration (Join-Path $root 'config.json')
+        Assert ($config.ManagementIntent -eq 'Paused') 'Actual independent watcher must remain paused during injected-network verification'
+        $cycleConfig=$config | ConvertTo-Json -Depth 12 | ConvertFrom-Json
+        $cycleConfig.ManagementIntent='Monitoring'; $cycleConfig.Mode='Strict'; $cycleConfig.Diagnostics='None'; $cycleConfig.Port=7892; $cycleConfig.Whitelist=@('Fixture Bypass')
+        $script:fixtureSsid='Fixture Ordinary'; $script:fixtureGateway='192.0.2.1'; $script:monitorEvidence=[Collections.Generic.List[object]]::new()
+        $services=@{
+            ReadNetwork={ [pscustomobject]@{Kind='Connected';Reason='Injected network facts';Generation=0;Candidates=@([pscustomobject]@{SSID=$script:fixtureSsid;Guid='11111111-1111-1111-1111-111111111111';Gateway=$script:fixtureGateway;Metric=10;Ready=$true;AddressKey='fixture';Matchable=$true})} }
+            ReadProxy={ Read-SystemProxy }; ReadRegistry={ Get-ManualSnapshot }
+            Apply={param($target) Set-TargetProxy $target}
+            RecordApplied={param($snapshot) Write-JsonAtomic (Join-Path $root 'state/last-applied.json') $snapshot}
+            IsStopping={ $false }; ReopenNative={}; Probe={ throw 'Diagnostics are disabled for this controlled test' }; Log={param($level,$message,$data)}
+            Heartbeat={param($data) $script:monitorEvidence.Add([pscustomobject]$data)}
+        }
+        $state=New-MonitorState
+        Invoke-AutomaticMonitorCycle $state $cycleConfig $services 0 | Out-Null
+        Invoke-AutomaticMonitorCycle $state $cycleConfig $services 1 | Out-Null
+        $actual=Read-SystemProxy; Assert ($actual.Enable -and $actual.Server -eq '192.0.2.1:7892') 'Production gateway decision did not enable the actual manual proxy'
+        $script:fixtureGateway='192.0.2.2'
+        Invoke-AutomaticMonitorCycle $state $cycleConfig $services 2 | Out-Null
+        Invoke-AutomaticMonitorCycle $state $cycleConfig $services 3 | Out-Null
+        Assert ((Read-SystemProxy).Server -eq '192.0.2.2:7892') 'Production gateway change did not update actual WinINet'
+        $script:fixtureSsid='Fixture Bypass'
+        Invoke-AutomaticMonitorCycle $state $cycleConfig $services 4 | Out-Null
+        Invoke-AutomaticMonitorCycle $state $cycleConfig $services 5 | Out-Null
+        Assert (-not (Read-SystemProxy).Enable) 'Production whitelist decision did not disable actual WinINet'
+        Write-JsonAtomic (Join-Path $OutputDirectory 'injected-network-real-wininet.json') ([pscustomobject]@{NetworkInput='Synthetic facts, no physical Wi-Fi device or route change';ProxyBoundary='Actual Windows WinINet/registry';ProductionCode='Invoke-AutomaticMonitorCycle + Set-TargetProxy';Observations=$script:monitorEvidence})
     }
     Test 'Software upgrade preserves config, original backup and unique task ownership' {
         $root=Get-InstalledRoot; $before=[IO.File]::ReadAllBytes((Join-Path $root 'config.json')); Install
@@ -111,7 +172,8 @@ try {
         Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/jeffxuu/WiFiProxyPilot/releases/download/v3.2.0-beta.1/WiFiProxySwitcher.exe' -OutFile $old
         $legacyConfig=Read-Configuration (Join-Path $repo 'config.json'); $legacyConfig.SetupComplete=$true; $legacyConfig.ManagementIntent='Monitoring'; $legacyConfig.TrayAutoStart=$false; $legacyConfig.Whitelist=@('Legacy Test SSID',' 空格网络 ')
         $legacyPath=Join-Path $OutputDirectory 'legacy-confirmed.json'; Write-JsonAtomic $legacyPath $legacyConfig
-        Run $old @('/install','/quiet','/setup-config',('"'+$legacyPath+'"')) | Out-Null
+        $legacyRoot=Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) ('Pilot-Legacy-Acceptance-'+[Guid]::NewGuid().ToString('N'))
+        Run $old @('/install','/quiet','/install-dir',('"'+$legacyRoot+'"'),'/setup-config',('"'+$legacyPath+'"')) | Out-Null
         $root=Get-InstalledRoot; $backupHash=(Get-FileHash -LiteralPath (Join-Path $root 'state/proxy-before-install.json')).Hash
         $configBytes=[IO.File]::ReadAllBytes((Join-Path $root 'config.json')); $taskName=(Read-Install $root).TaskName
         Assert (Test-Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\WiFiProxySwitcher') 'Real legacy uninstall registration missing'
@@ -127,6 +189,19 @@ try {
         Remove 'restore' 'no'; Assert (Test-RestoreAllowed (Get-ManualSnapshot) $original) 'Legacy upgraded uninstall did not restore original'
     }
 } finally {
+    # Keep bounded lifecycle diagnostics after the disposable runner is destroyed.
+    try {
+        $controlEvidence=Join-Path $OutputDirectory 'control-evidence'; [IO.Directory]::CreateDirectory($controlEvidence) | Out-Null
+        $controlDirectory=Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'WiFiProxySwitcher-Control'
+        foreach ($name in @('installer-PrepareInstall-result.json','installer-CommitInstall-result.json','installer-InspectUninstall-result.json','installer-Uninstall-result.json','control-errors.log','commands.jsonl','desktop-errors.log')) {
+            $source=Join-Path $controlDirectory $name
+            if (Test-Path -LiteralPath $source -PathType Leaf) {
+                Assert-PlainPath $source
+                $lines=@(Get-Content -LiteralPath $source -Encoding UTF8 -Tail 500)
+                [IO.File]::WriteAllText((Join-Path $controlEvidence $name),($lines -join [Environment]::NewLine),[Text.UTF8Encoding]::new($false))
+            }
+        }
+    } catch { $failed++; $results.Add([pscustomobject]@{Name='Capture bounded lifecycle evidence';Passed=$false;Error=$_.Exception.Message}) }
     # Always restore the disposable runner's original manual proxy, even after a failed assertion.
     try { $root=Get-InstalledRoot; if ($root) { Stop-OwnedWatcher (Read-Install $root) }; Restore-ManualSnapshot $original } catch { $failed++; $results.Add([pscustomobject]@{Name='Final original proxy restore';Passed=$false;Error=$_.Exception.Message}) }
     $results.Add([pscustomobject]@{Name='Final original proxy restored';Passed=(Test-RestoreAllowed (Get-ManualSnapshot) $original)})

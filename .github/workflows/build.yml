@@ -45,11 +45,25 @@ jobs:
         run: |
           dotnet run --project tests/Status.Tests/Status.Tests.csproj --configuration Release -- release/generated/status-results-windows.json
           if ($LASTEXITCODE) { throw 'Status regression failed' }
+      - name: Actual startup and tray-show timing
+        id: performance
+        continue-on-error: true
+        shell: powershell
+        run: ./tools/Measure-Startup.ps1 -Exe release/generated/installer-stage/WiFiProxyPilot.exe -OutputDirectory release/generated/performance-v33 -Runs 4
       - name: Actual Setup lifecycle and WinINet acceptance on disposable Windows
         shell: powershell
         run: |
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests/Installed.Acceptance.ps1 -Setup release/dist/WiFiProxyPilot-Setup-x64.exe -Dotnet dotnet -OutputDirectory release/generated/installed-acceptance
           if ($LASTEXITCODE) { throw 'Installed user-path acceptance failed' }
+      - name: Bilingual ResourceManager and persistent preferences
+        shell: powershell
+        run: |
+          dotnet run --project tests/Localization.Tests/Localization.Tests.csproj --configuration Release -- release/generated/localization-results-windows.json
+          if ($LASTEXITCODE) { throw 'Localization regression failed' }
+      - name: Enforce startup measurement results
+        if: always() && steps.performance.outcome == 'failure'
+        shell: powershell
+        run: throw 'Startup measurement failed; retained performance samples must be investigated'
       - name: Upload build and verification evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -62,4 +76,5 @@ jobs:
             release/generated/build-record.json
             release/generated/inno-7.1.0/dependency.json
             release/generated/installed-acceptance/**
+            release/generated/performance-v33/**
           retention-days: 30

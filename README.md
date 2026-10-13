@@ -6,7 +6,7 @@
   ![Windows 11](https://img.shields.io/badge/Windows-11-0078D4)
   ![.NET 8](https://img.shields.io/badge/.NET-8-512BD4)
   ![WPF](https://img.shields.io/badge/UI-WPF-6557E8)
-  [![Release](https://img.shields.io/github/v/release/jeffxuu/WiFiProxyPilot?include_prereleases)](https://github.com/jeffxuu/WiFiProxyPilot/releases/tag/v3.2.0-beta.1)
+  [![Release](https://img.shields.io/github/v/release/jeffxuu/WiFiProxyPilot?include_prereleases)](https://github.com/jeffxuu/WiFiProxyPilot/releases/tag/v3.3.0-beta.1)
   [![MIT License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
   [![GitHub Stars](https://img.shields.io/github/stars/jeffxuu/WiFiProxyPilot?style=flat)](https://github.com/jeffxuu/WiFiProxyPilot/stargazers)
 </div>
@@ -15,9 +15,11 @@
 
 **Your Wi-Fi changes. Your proxy follows.** Use a gateway-hosted proxy on ordinary Wi-Fi networks and connect directly on networks you choose. Manage it from a modern WPF desktop or the system tray.
 
-> **v3.2.0-beta.1 is a Beta / Prerelease.** Screenshots show the actual WPF app with simulated network data. Real network, login/sleep, installation and uninstall acceptance remains separate from isolated regression tests. The current UI is Simplified Chinese; these README translations do not imply UI localization. The repository is Public.
+> **v3.3.0-beta.1 is a prerelease candidate.** This revision adds native Windows window controls, a real per-user Setup EXE and complete English/Simplified Chinese UI resources. Read the [acceptance record](docs/TEST_RESULTS_V3_3.md) for actual results and pending checks. Compilation, previews and screenshots alone do not establish installation or proxy-management acceptance. The existing v3.2 Release is retained.
 
 ## Screenshots
+
+The gallery below records the **v3.2 layout** with simulated network data. Its old caption buttons are historical and do not depict the new native v3.3 title bar. v3.3 full-window captures will be added only from an unlocked desktop or a verified CI capture; no installation-success image is fabricated. Actual control-operation evidence is linked in the acceptance record.
 
 ![Overview — actual WPF app, simulated network](docs/images/dashboard.png)
 
@@ -41,7 +43,9 @@ All images are real application captures from an isolated fixture, **not evidenc
 - Recognizes the connected Wi-Fi and matches your complete SSID rules, ignoring case.
 - Resolves the current physical Wi-Fi interface's **IPv4 default gateway**, then applies your configured proxy port (default `7890`).
 - Uses direct-connection rules for selected networks. New installations start with **no built-in Wi-Fi rules**; every rule can be edited or deleted.
-- Offers a macOS-inspired WPF interface, light/dark themes and a system tray with an independent background watcher.
+- Keeps the simple WPF content design with native Windows caption controls, light/dark themes and a system tray with an independent watcher.
+- Uses English or Simplified Chinese based on Windows display language, with a persistent Language setting.
+- Installs through a current-user Inno Setup wizard with a Start menu entry and checked uninstall lifecycle.
 - Separates automatic management, Windows manual-proxy state and optional TCP/HTTP diagnostics. An enabled proxy is not proof of internet access.
 - Saves configuration atomically and distinguishes “saved” from “applied by the watcher.”
 - Retains the original manual-proxy backup and protects later changes made by you or another application.
@@ -49,25 +53,27 @@ All images are real application captures from an isolated fixture, **not evidenc
 
 ## Download and installation
 
-**[Download v3.2.0-beta.1 — Beta / Prerelease](https://github.com/jeffxuu/WiFiProxyPilot/releases/tag/v3.2.0-beta.1)**
+**[Download Windows x64 Setup — v3.3.0-beta.1](https://github.com/jeffxuu/WiFiProxyPilot/releases/download/v3.3.0-beta.1/WiFiProxyPilot-Setup-x64.exe)**
 
-[Windows x64 EXE](https://github.com/jeffxuu/WiFiProxyPilot/releases/download/v3.2.0-beta.1/WiFiProxySwitcher.exe) · [ZIP with documentation](https://github.com/jeffxuu/WiFiProxyPilot/releases/download/v3.2.0-beta.1/WiFiProxySwitcher.zip) · [SHA256 checksums](https://github.com/jeffxuu/WiFiProxyPilot/releases/download/v3.2.0-beta.1/SHA256.txt) · [Build verification](https://github.com/jeffxuu/WiFiProxyPilot/actions/workflows/build.yml)
+[Candidate release and notes](https://github.com/jeffxuu/WiFiProxyPilot/releases/tag/v3.3.0-beta.1) · [SHA256 checksums](https://github.com/jeffxuu/WiFiProxyPilot/releases/download/v3.3.0-beta.1/SHA256.txt) · [Windows build and acceptance](https://github.com/jeffxuu/WiFiProxyPilot/actions/workflows/build.yml)
 
-This release contains the WPF interface shown above. It is a public prerelease, **not a fully validated stable release**. Review the release notes and compare SHA256 before installing. CI artifacts are also available to signed-in GitHub users but expire; the versioned Release assets are the recommended download.
+The Setup download is the installer. It creates the Start menu entry and Windows Installed Apps entry, and offers an optional desktop shortcut. The installed application is **WiFiProxyPilot.exe**. Candidate asset links become available when the v3.3 candidate is published; build and acceptance status are recorded separately.
 
 The intended platform is **Windows 11 x64**, with Windows PowerShell 5.1, WLAN service and Windows Script Host. The self-contained EXE does not require separately installing .NET, Python, Node.js or WebView2. No broader Windows compatibility is claimed. Organization policies may restrict WLAN information, proxy settings or scheduled tasks. Current builds are unsigned; keep Windows security protections enabled.
 
-Download the EXE or extract the ZIP and compare its hash with the accompanying `SHA256.txt`:
+Verify Setup against the accompanying `SHA256.txt`:
 
 ```powershell
-Get-FileHash .\WiFiProxySwitcher.exe -Algorithm SHA256
+Get-FileHash .\WiFiProxyPilot-Setup-x64.exe -Algorithm SHA256
 ```
 
-The executable remains `WiFiProxySwitcher.exe` for upgrade compatibility. Run it as your normal interactive Windows user. Opening the v3.2 window alone does not enable proxy management. Do not install for your everyday account using a different administrator's account.
+Run Setup as your normal interactive Windows user. The default location is `%LOCALAPPDATA%\Programs\WiFiProxyPilot`; unnecessary administrator elevation is not requested. Installing or opening the application **does not enable proxy management**. First activation requires reviewing the port and Wi-Fi rules and confirming automatic switching. Do not install for your everyday account using a different administrator's account.
+
+[Portable archive](https://github.com/jeffxuu/WiFiProxyPilot/releases/download/v3.3.0-beta.1/WiFiProxyPilot-Portable-x64.zip) is a secondary option for extracted application use. It is not a Setup EXE and does not register Installed Apps or shortcuts when extracted. Enabling its watcher uses the legacy current-user engine installation; use Setup for installer-managed upgrades and removal. See [installation, upgrade and uninstall](docs/INSTALLATION_V3_3.md).
 
 ## Quick Start
 
-1. **Download** a build and check its version/hash.
+1. **Download and install Setup**, verify its hash, then open WiFi Proxy Pilot from Start.
 2. **Configure** the port of an existing proxy on your Wi-Fi gateway, and add the Wi-Fi names that should use a direct connection.
 3. **Enable Auto Switching** after reviewing the settings the app will manage.
 
@@ -108,11 +114,21 @@ Pause and direct intent persist across GUI restarts and logins. Watcher login st
 
 ## Recovery and uninstall
 
-The original manual-proxy backup is `state/proxy-before-install.json` under the installation directory. Upgrades preserve it and your rules; they do not create a new “original” backup. Configuration changes retain the previous valid file. Keep these local files private.
+The original manual-proxy backup is `state/proxy-before-install.json` under the watcher data directory. Program files and watcher data have separate ownership. Setup retains an existing engine root, SSID rules, management intent, task ownership and the first backup; it retires the verified legacy desktop/uninstall entries so they do not compete with Inno Setup. Keep these local files private.
 
-For an existing installation, open the candidate EXE and use **Settings → Advanced operations → Repair installation / Upgrade**. Do not uninstall first or overwrite your configuration with repository defaults. See [configuration migration](docs/CONFIG_MIGRATION.md).
+Upgrade by running the new **Setup EXE** over the existing installation. Do not uninstall first or overwrite your configuration with repository defaults. A fresh installation does not install or start its watcher; existing activated installations retain their prior management intent. See [installation and migration](docs/INSTALLATION_V3_3.md) and [configuration migration](docs/CONFIG_MIGRATION.md).
 
-Use **Restore original configuration**, **Settings → Advanced operations → Uninstall**, or Windows Installed Apps. Restore/uninstall compares current settings with the original and last settings written by this tool. Later external edits cause a conflict instead of being overwritten. Force restore is an explicit choice; uninstall can also keep the current proxy. Removal is limited to owned tasks/startup records and verified product files, protecting unrelated or user-modified files. Direct mode keeps the original backup.
+Uninstall from **Windows Settings → Apps → Installed apps → WiFi Proxy Pilot**, or **Settings → Advanced operations → Uninstall**. The wizard offers restoration of the original manual proxy or retention of the current proxy. Later external changes trigger a conflict with **Restore original / Keep current / Cancel** choices. Cancel preserves the running application, watcher and installation.
+
+The wizard also offers keeping or deleting known user data. Retained configuration, rules, original proxy backup and logs are copied to `%LOCALAPPDATA%\WiFiProxyPilot-Retained`. Unknown files, user-modified program files and upgrade backups remain protected. Cleanup verifies owned tasks, startup records and known files; it does not recursively erase an application data tree. See [troubleshooting](docs/TROUBLESHOOTING_V3_3.md) if a checked lifecycle result fails.
+
+## Application languages
+
+The application UI supports **English (en-US)** and **Simplified Chinese (zh-CN)**. **Settings → Language → Follow Windows** is the default and uses Windows display language through `CurrentUICulture`. Unsupported languages fall back to English. Traditional Chinese Windows uses a deliberate Simplified Chinese fallback in this release.
+
+Selecting English or 简体中文 refreshes cached pages, tray menus and subsequent dialogs immediately and saves the preference for restart. Language preferences and unconfirmed setup drafts can persist before watcher activation. README translations in eleven languages are separate documentation and do not imply eleven UI languages.
+
+When `/preview` or an isolated fixture is active, a visible **Demo mode** banner identifies simulated network data. Proxy, automatic-switch, watcher and installation controls are disabled; a demo cannot report a real proxy change.
 
 ## Security & Privacy
 
@@ -142,7 +158,7 @@ Report security issues through [SECURITY.md](SECURITY.md).
 
 **Why can't the current network be read?** WLAN/location permissions, organization policies, missing routes, a stopped watcher or an old heartbeat may prevent reliable status. The UI shows the reason and last valid observation instead of treating old data as current.
 
-**What has been tested?** See [v3.2 test results](docs/TEST_RESULTS_V3_2.md), [performance evidence](docs/PERFORMANCE_V3_2.md) and [release checklist](docs/RELEASE_CHECKLIST.md). Isolated checks are not real network or installation acceptance, and target performance is not a measured result.
+**What has been tested?** See [v3.3 acceptance results](docs/TEST_RESULTS_V3_3.md), the [v3.2 performance baseline](docs/PERFORMANCE_V3_2.md) and [release checklist](docs/RELEASE_CHECKLIST.md). Results identify actual UI operations, disposable Windows Setup/WinINet tests, device limits and measured timings separately. No unexecuted item is reported as passed.
 
 ## Star History
 
@@ -156,13 +172,13 @@ If WiFi Proxy Pilot makes your workflow easier, consider giving the project a st
   </picture>
 </a>
 
-The official live SVG uses this Public repository's actual GitHub data. On 2026-10-14 GitHub reports **0 stars**, so an empty history is expected. Both light and dark URLs return HTTP 200. No stars or growth are fabricated, and an empty history is not replaced with invented data. See the [official embedding guide](https://www.star-history.com/blog/how-to-use-github-star-history/).
+The official live SVG uses this Public repository's actual GitHub data. An empty history is valid when no star activity is available. No stars or growth are fabricated, and an empty history is not replaced with invented data. See the [official embedding guide](https://www.star-history.com/blog/how-to-use-github-star-history/).
 
 ## Contributing and roadmap
 
 Issues and pull requests are welcome from users with repository access. Describe the build, expected/actual behavior and redacted evidence. See [CONTRIBUTING.md](CONTRIBUTING.md) for the Windows build and review process. Do not include personal configurations, proxy backups, credentials or unredacted logs.
 
-Planned work: real upgrade/login/sleep/uninstall acceptance, remaining WPF accessibility and layout checks, startup performance improvements, and UI localization. These are plans, not shipped features; automatic updating is not implemented.
+This candidate adds installer ownership, bilingual resources and actual-control automation. Remaining acceptance limits are tracked in the test record, including hardware-specific Wi-Fi and DPI/Snap checks. Automatic updating is not implemented.
 
 Build with the SDK in `global.json` and Windows PowerShell:
 
@@ -171,7 +187,7 @@ powershell.exe -NoProfile -File tests\Run-Tests.ps1 -ResultPath artifacts\engine
 powershell.exe -NoProfile -File release\Build.ps1
 ```
 
-The build creates a self-contained `win-x64` EXE without installing it or changing the host proxy. The existing `WiFiProxySwitcher` installation, registry, mutex and task identities remain for compatibility.
+The build produces `WiFiProxyPilot-Setup-x64.exe`, `WiFiProxyPilot-Portable-x64.zip` and `SHA256.txt` without installing them or modifying the build host proxy. Installed files use an unbundled self-contained runtime to avoid single-file unpacking at startup. Inno Setup 7.1.0 is pinned by checksum and verified upstream signatures. Internal `WiFiProxySwitcher` data, registry, mutex and task identifiers remain for upgrade compatibility. See the [build guide](docs/INSTALLATION_V3_3.md#build-and-verify).
 
 ## License
 

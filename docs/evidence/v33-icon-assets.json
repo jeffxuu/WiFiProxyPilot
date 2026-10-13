@@ -1,0 +1,89 @@
+{
+  "Version": "3.3.0-beta.1",
+  "Source": "src/WiFiProxySwitcher/assets/pilot.svg",
+  "Generator": "tools/Generate-Icon.ps1",
+  "Method": "ICO header, bounds, 32bpp entries and actual PNG decoder dimensions verified",
+  "Assets": [
+    {
+      "Asset": "src/WiFiProxySwitcher/assets/app.ico",
+      "Sizes": [
+        16,
+        20,
+        24,
+        32,
+        48,
+        64,
+        128,
+        256
+      ],
+      "DecodedPngFrames": 8,
+      "Sha256": "AE0283C1DAFB2B82ED79F8C1604B2F90E25D1DA549A8FC59F20340EF59EB16C9",
+      "Valid": true
+    },
+    {
+      "Asset": "src/WiFiProxySwitcher/assets/monitoring.ico",
+      "Sizes": [
+        16,
+        20,
+        24,
+        32,
+        48,
+        64,
+        128,
+        256
+      ],
+      "DecodedPngFrames": 8,
+      "Sha256": "1D01F2002EE28EB904AFADC5C773F6777ACC571B2007AB7851443E91B60B200A",
+      "Valid": true
+    },
+    {
+      "Asset": "src/WiFiProxySwitcher/assets/direct.ico",
+      "Sizes": [
+        16,
+        20,
+        24,
+        32,
+        48,
+        64,
+        128,
+        256
+      ],
+      "DecodedPngFrames": 8,
+      "Sha256": "86EBEE0D5CC31B62AFAF219DA8954E688DA22990B62D51905FC9DF8858A6BE80",
+      "Valid": true
+    },
+    {
+      "Asset": "src/WiFiProxySwitcher/assets/paused.ico",
+      "Sizes": [
+        16,
+        20,
+        24,
+        32,
+        48,
+        64,
+        128,
+        256
+      ],
+      "DecodedPngFrames": 8,
+      "Sha256": "D42EA72090E96BFA4465FDF080DF28973EA380C2C2710F2FF3ADF4C4AE3B471F",
+      "Valid": true
+    },
+    {
+      "Asset": "src/WiFiProxySwitcher/assets/attention.ico",
+      "Sizes": [
+        16,
+        20,
+        24,
+        32,
+        48,
+        64,
+        128,
+        256
+      ],
+      "DecodedPngFrames": 8,
+      "Sha256": "745329147271F0AAB12C1B5A722B188856F89F7D5C8711FDD811D4DD6D4798BC",
+      "Valid": true
+    }
+  ],
+  "Boundary": "Asset validity and small-size visual inspection; Explorer cache lifecycle tested separately by installation acceptance"
+}

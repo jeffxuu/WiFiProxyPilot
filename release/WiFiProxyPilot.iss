@@ -24,6 +24,7 @@ DisableDirPage=no
 PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
+SetupArchitecture=x64
 MinVersion=10.0.22000
 WizardStyle=modern
 LanguageDetectionMethod=uilanguage
@@ -112,6 +113,8 @@ function RunLifecycle(const Script, Action, Additional: String; var Code: Intege
 var
   Parameters: String;
   Json: AnsiString;
+  Captured: TExecOutput;
+  Index: Integer;
 begin
   LifecycleResult := ExpandConstant('{localappdata}\WiFiProxySwitcher-Control\installer-' + Action + '-result.json');
   ForceDirectories(ExtractFileDir(LifecycleResult));
@@ -119,12 +122,20 @@ begin
   Parameters := '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File ' + Quote(Script) +
     ' -Action ' + Action + ' -AppDir ' + Quote(ExpandConstant('{app}')) +
     ' -ResultPath ' + Quote(LifecycleResult) + ' ' + Additional;
-  Result := Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'), Parameters,
-    ExtractFileDir(Script), SW_HIDE, ewWaitUntilTerminated, Code);
+  Result := ExecAndCaptureOutputWithNativeSysDir(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'), Parameters,
+    ExtractFileDir(Script), SW_HIDE, ewWaitUntilTerminated, Code, Captured);
+  for Index := 0 to GetArrayLength(Captured.StdOut)-1 do begin
+    if Index < 32 then Log('Lifecycle stdout: ' + Captured.StdOut[Index]);
+  end;
+  for Index := 0 to GetArrayLength(Captured.StdErr)-1 do begin
+    if Index < 32 then Log('Lifecycle stderr: ' + Captured.StdErr[Index]);
+  end;
   if Result then begin
-    Result := LoadStringFromFile(LifecycleResult, Json) and
-      (((Code = 0) and (Pos('"Succeeded": true', Json) > 0)) or
-       ((Code = 20) and (Pos('"Code": "RestoreConflict"', Json) > 0)));
+    Result := LoadStringFromFile(LifecycleResult, Json);
+    if Result then Log('Lifecycle result: ' + String(Json));
+    Result := Result and
+      (((Code = 0) and (Pos('"Succeeded":true', Json) > 0)) or
+       ((Code = 20) and (Pos('"Code":"RestoreConflict"', Json) > 0)));
   end;
   Log('Lifecycle ' + Action + ': process exit=' + IntToStr(Code) + ', checked result=' + IntToStr(Ord(Result)));
 end;

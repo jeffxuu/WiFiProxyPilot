@@ -356,13 +356,28 @@ function Get-InstalledRoot {
     $k=[Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($script:Pointer)
     try { if ($null -ne $k) { return [string]$k.GetValue('InstallDir','') }; return '' } finally { if ($null -ne $k) { $k.Dispose() } }
 }
+function Get-DefaultEngineInstallDirectory([string]$LocalData='') {
+    if (-not $LocalData) { $LocalData=[Environment]::GetFolderPath('LocalApplicationData') }
+    $historical=Join-Path $LocalData 'WiFiProxySwitcher'; Assert-PlainPath $historical
+    if (-not (Test-Path -LiteralPath $historical) -or @(Get-ChildItem -LiteralPath $historical -Force).Count -eq 0) { return $historical }
+    if (Test-Path -LiteralPath (Join-Path $historical 'state/installation.json')) {
+        Read-Install $historical | Out-Null
+        return $historical
+    }
+    # An uninstalled user's preserved files are not a current installation. Keep them intact
+    # and create a fresh dedicated engine root, only on a new confirmed activation.
+    $fresh=Join-Path $LocalData ('WiFiProxyPilot-Data/engine-'+[Guid]::NewGuid().ToString('N'))
+    Assert-PlainPath $fresh
+    if (Test-Path -LiteralPath $fresh) { throw 'Fresh engine directory unexpectedly already exists' }
+    return $fresh
+}
 function Read-Install([string]$Root) {
     Assert-PlainPath $Root
     foreach ($sub in @('state','lib','logs','state\installation.json','state\proxy-before-install.json','state\last-applied.json')) { Assert-PlainPath (Join-Path $Root $sub) }
     $file=Join-Path $Root 'state\installation.json'
     if (-not (Test-Path -LiteralPath $file)) { throw '没有有效安装记录，请先运行 Install.bat' }
     $m=Get-Content -LiteralPath $file -Raw -Encoding UTF8 | ConvertFrom-Json
-    if ($m.Product -cne 'WiFiProxySwitcher-v1' -or $m.OwnerSid -cne (Get-UserSid) -or -not [string]::Equals([IO.Path]::GetFullPath($m.Root),[IO.Path]::GetFullPath($Root),[StringComparison]::OrdinalIgnoreCase)) { throw '安装记录不属于本工具/当前用户/此目录，拒绝操作' }
+    if ($m.Product -cne 'WiFiProxySwitcher-v1' -or $m.OwnerSid -cne (Get-UserSid) -or -not [string]::Equals([IO.Path]::GetFullPath($m.Root),[IO.Path]::GetFullPath($Root),[StringComparison]::OrdinalIgnoreCase)) { Throw-ProductError 'InstallOwnershipMismatch' '安装记录不属于本工具/当前用户/此目录，拒绝操作' }
     if ($m.TaskName -cne ($script:TaskPrefix+(Get-UserSid))) { throw '任务名称记录无效' }
     Assert-InstallManifest $m
     return $m
@@ -404,7 +419,7 @@ function Start-OwnedWatcher($Manifest) {
     if ($null -ne $Manifest.PSObject.Properties['Phase'] -and $Manifest.Phase -eq 'Uninstalling') { throw '卸载尚未完成，拒绝重新启动监控' }
     if (Test-Path -LiteralPath (Join-Path $Manifest.Root 'state/upgrade-recovery.json')) { throw '升级恢复尚未完成，拒绝启动可能混合版本的后台；请检查升级恢复记录和保留的备份' }
     $task=Get-OwnedTask $Manifest
-    if ($null -eq $task) { throw '自启动任务缺失，请重复安装以修复' }
+    if ($null -eq $task) { Throw-ProductError 'WatcherTaskMissing' '自启动任务缺失，请重复安装以修复' }
     $stop=Join-Path $Manifest.Root 'state/stop.request'
     if (Test-Path -LiteralPath $stop) { Stop-OwnedWatcher $Manifest }
     $watch=New-UserMutex 'Watcher'; $taken=$false
@@ -427,7 +442,7 @@ function Start-OwnedWatcher($Manifest) {
             if ($s.Outcome -notin @('Starting','Stopped') -and (ConvertTo-RecordTime $s.Time) -ge $requested -and $s.RunId) { $ready=$true; break }
         }
     }
-    if (-not $ready) { throw '任务已请求启动，但未收到本次启动的监控心跳。检查日志、执行策略、WSH 和任务历史' }
+    if (-not $ready) { Throw-ProductError 'WatcherStartTimeout' '任务已请求启动，但未收到本次启动的监控心跳。检查日志、执行策略、WSH 和任务历史' }
     Write-Output '监控已静默启动并收到新心跳；网络/代理结果请用 Status.bat 与日志确认'
 }
 

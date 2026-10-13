@@ -35,6 +35,7 @@ internal sealed class PilotTrayHost : IDisposable
         if (activation != null) activationWait = ThreadPool.RegisterWaitForSingleObject(activation, (_, _) => Dispatch(() => Open()), null, Timeout.Infinite, false);
         if (exit != null) exitWait = ThreadPool.RegisterWaitForSingleObject(exit, (_, _) => Dispatch(ExitUi), null, Timeout.Infinite, false);
         SystemEvents.PowerModeChanged += PowerChanged; SystemEvents.SessionSwitch += SessionChanged;
+        SystemEvents.DisplaySettingsChanged += DisplayChanged; SystemEvents.UserPreferenceChanged += ShellPreferenceChanged;
         if (trayMode) _ = Window.ViewModel.InitializeAsync(); else Window.Show();
     }
     internal void Open(string page = "Dashboard")
@@ -86,11 +87,19 @@ internal sealed class PilotTrayHost : IDisposable
     private void Dispatch(Action action) { if (exiting) return; if (Window.Dispatcher.CheckAccess()) action(); else Window.Dispatcher.BeginInvoke(action); }
     private void PowerChanged(object sender, PowerModeChangedEventArgs e) { if (e.Mode == PowerModes.Resume) Dispatch(() => { _ = Window.ViewModel.RefreshAsync(); }); }
     private void SessionChanged(object sender, SessionSwitchEventArgs e) { if (e.Reason == SessionSwitchReason.SessionUnlock) Dispatch(() => { _ = Window.ViewModel.RefreshAsync(); }); }
+    private void DisplayChanged(object? sender, EventArgs e) => Dispatch(ReloadIcon);
+    private void ShellPreferenceChanged(object sender, UserPreferenceChangedEventArgs e) => Dispatch(ReloadIcon);
+    private void ReloadIcon()
+    {
+        var replacement = AppIcons.Create(iconState); var previous = icon;
+        Tray.Icon = replacement; icon = replacement; previous.Dispose();
+    }
     internal void ExitUi()
     {
         if (exiting) return; if (Window.ViewModel.Busy) { pendingExit = true; return; }
         exiting = true; activationWait?.Unregister(null); exitWait?.Unregister(null);
         SystemEvents.PowerModeChanged -= PowerChanged; SystemEvents.SessionSwitch -= SessionChanged;
+        SystemEvents.DisplaySettingsChanged -= DisplayChanged; SystemEvents.UserPreferenceChanged -= ShellPreferenceChanged;
         Window.ViewModel.StatusChanged -= Update; Window.ViewModel.ExitRequested -= ExitUi;
         Window.ViewModel.PropertyChanged -= ViewModelChanged;
         Localization.Current.LanguageChanged -= LanguageChanged;

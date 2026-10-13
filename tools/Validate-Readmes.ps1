@@ -17,9 +17,21 @@ foreach($name in $files){
     }
     if($content -match 'jeffxuu/WiFi-test'){throw ('Old repository URL: '+$name)}
     if($content -match 'v3\.[01]\b'){throw ('Obsolete version display: '+$name)}
-    foreach($asset in @('WiFiProxySwitcher.exe','WiFiProxySwitcher.zip','SHA256.txt')){
-        if(-not $content.Contains('releases/download/v3.2.0-beta.1/'+$asset)){throw ('Missing v3.2 asset link: '+$name+' -> '+$asset)}
+    if($name -in @('README.md','README.zh-CN.md')){
+        foreach($asset in @('WiFiProxyPilot-Setup-x64.exe','WiFiProxyPilot-Portable-x64.zip','SHA256.txt')){
+            if(-not $content.Contains('releases/download/v3.3.0-beta.1/'+$asset)){throw ('Missing v3.3 asset link: '+$name+' -> '+$asset)}
+        }
+        if($content.Contains('releases/download/v3.2.0-beta.1/WiFiProxySwitcher.exe')){throw ('Current README still recommends old application EXE: '+$name)}
+        $setup=$content.IndexOf('releases/download/v3.3.0-beta.1/WiFiProxyPilot-Setup-x64.exe')
+        $portable=$content.IndexOf('releases/download/v3.3.0-beta.1/WiFiProxyPilot-Portable-x64.zip')
+        if($setup -ge $portable){throw ('Installer must precede optional portable archive: '+$name)}
+    }else{
+        if(-not $content.StartsWith('> **Documentation version: v3.2.0-beta.1.**')){throw ('Translated README must identify its older documentation version: '+$name)}
+        if(-not $content.Contains('releases/download/v3.3.0-beta.1/WiFiProxyPilot-Setup-x64.exe')){throw ('Translated README is missing current Setup notice: '+$name)}
+        foreach($asset in @('WiFiProxySwitcher.exe','WiFiProxySwitcher.zip','SHA256.txt')){
+            if(-not $content.Contains('releases/download/v3.2.0-beta.1/'+$asset)){throw ('Missing documented v3.2 asset link: '+$name+' -> '+$asset)}
+        }
     }
     if(-not $content.Contains('repos=jeffxuu/WiFiProxyPilot')){throw ('Missing repository Star History: '+$name)}
 }
-Write-Output ('Verified '+$files.Count+' complete README files, language navigation and relative links/images.')
+Write-Output ('Verified '+$files.Count+' complete README files, language navigation, current Setup-first assets, older translation notices and relative links/images.')
