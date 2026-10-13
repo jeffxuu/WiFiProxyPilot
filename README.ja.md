@@ -6,7 +6,7 @@
   ![Windows 11](https://img.shields.io/badge/Windows-11-0078D4)
   ![.NET 8](https://img.shields.io/badge/.NET-8-512BD4)
   ![WPF](https://img.shields.io/badge/UI-WPF-6557E8)
-  [![Release](https://img.shields.io/github/v/release/jeffxuu/WiFiProxyPilot)](https://github.com/jeffxuu/WiFiProxyPilot/releases)
+  [![Release](https://img.shields.io/github/v/release/jeffxuu/WiFiProxyPilot?include_prereleases)](https://github.com/jeffxuu/WiFiProxyPilot/releases)
   [![MIT ライセンス](https://img.shields.io/badge/License-MIT-green)](LICENSE)
   [![GitHub Stars](https://img.shields.io/github/stars/jeffxuu/WiFiProxyPilot?style=flat)](https://github.com/jeffxuu/WiFiProxyPilot/stargazers)
 </div>
@@ -15,7 +15,7 @@
 
 **Wi-Fi が変われば、プロキシも切り替わります。** 通常の Wi-Fi ではゲートウェイ上のプロキシを使い、指定したネットワークでは直接接続できます。モダンな WPF ウィンドウやシステムトレイから管理します。
 
-> **v3.2.0-beta.1 は開発中です。** スクリーンショットは実際の WPF アプリに模擬ネットワークデータを表示したものです。実ネットワーク、ログイン・スリープ、インストール・アンインストールの受け入れ確認は、隔離環境での回帰テストとは別です。現在の UI は簡体字中国語のみで、README の翻訳は UI の多言語対応を意味しません。所有者が公開を決定するまではリポジトリは Private のままであり、外部バッジや Star History を表示できない場合があります。
+> **v3.2.0-beta.1 は Beta/Prerelease です。** スクリーンショットは実際の WPF アプリに模擬ネットワークデータを表示したものです。実ネットワーク、ログイン・スリープ、インストール・アンインストールの受け入れ確認は、隔離環境での回帰テストとは別です。現在の UI は簡体字中国語のみで、README の翻訳は UI の多言語対応を意味しません。リポジトリは Public です。
 
 ## スクリーンショット
 
@@ -49,9 +49,9 @@
 
 ## ダウンロードとインストール
 
-**[最新の公開リリースをダウンロード — 旧版 v3.0.0](https://github.com/jeffxuu/WiFiProxyPilot/releases/latest)** · **[リリース一覧](https://github.com/jeffxuu/WiFiProxyPilot/releases)** · **[v3.2 ビルド成果物](https://github.com/jeffxuu/WiFiProxyPilot/actions/workflows/build.yml)**
+**[v3.2.0-beta.1 をダウンロード — Beta/Prerelease](https://github.com/jeffxuu/WiFiProxyPilot/releases/tag/v3.2.0-beta.1)** · **[EXE](https://github.com/jeffxuu/WiFiProxyPilot/releases/download/v3.2.0-beta.1/WiFiProxySwitcher.exe)** · **[ZIP](https://github.com/jeffxuu/WiFiProxyPilot/releases/download/v3.2.0-beta.1/WiFiProxySwitcher.zip)** · **[SHA256](https://github.com/jeffxuu/WiFiProxyPilot/releases/download/v3.2.0-beta.1/SHA256.txt)** · **[ビルド成果物](https://github.com/jeffxuu/WiFiProxyPilot/actions/workflows/build.yml)**
 
-公開済みの v3.0.0 は以前の UI と動作であり、上の v3.2 WPF UI を**含みません**。v3.1.0 は Draft Prerelease です。現在、公開済みの v3.2 リリースはありません。ビルド成果物にはリポジトリへのアクセス権が必要で、保存期限があります。Draft は一般向けダウンロードではありません。インストール前にバージョン、リリースノート、SHA256 を確認してください。Release バッジは開発版ではなく公開済みリリースを示します。
+v3.2.0-beta.1 は **Beta/Prerelease** であり、完全に安定した正式版ではありません。インストール前にバージョン、リリースノート、`SHA256.txt` のチェックサムを確認してください。Release バッジは Prerelease も含みます。GitHub のビルド成果物には保存期限があります。このバージョンのダウンロードには上記のリリースファイルを使ってください。
 
 対象環境は **Windows 11 x64**、Windows PowerShell 5.1、WLAN サービス、Windows Script Host です。自己完結型 EXE のため .NET、Python、Node.js、WebView2 を別途インストールする必要はありません。他の Windows バージョンとの互換性は検証済みと主張していません。組織のポリシーによって WLAN 情報、プロキシ設定、タスクスケジューラが制限される場合があります。現在のビルドは未署名です。Windows のセキュリティ保護は有効にしておいてください。
 
@@ -120,7 +120,7 @@ Wi-Fi に接続 → 安定した SSID・インターフェイス情報を取得 
 - 管理するのは現在の Windows ユーザーの**手動プロキシ**です。DNS、経路、ファイアウォールルールは変更しません。
 - ログや診断にネットワーク識別情報が含まれる場合があります。共有前に確認して個人情報を伏せてください。
 
-過去のコミットや旧リリース資料には以前のネットワーク例と端末のパスが含まれます。Private にしても履歴から消えるわけではありません。公開前には所有者が[公開リポジトリ監査](docs/PUBLIC_REPOSITORY_AUDIT.md)を別途確認する必要があります。セキュリティ問題は [SECURITY.md](SECURITY.md) に従って報告してください。
+セキュリティ問題は [SECURITY.md](SECURITY.md) に従って報告してください。
 
 ## よくある質問
 
@@ -154,7 +154,7 @@ WiFi Proxy Pilot が作業を楽にしたら、プロジェクトへの Star を
   </picture>
 </a>
 
-公式のライブ SVG は本リポジトリの実際の GitHub データを使います。Private の間は外部サービスから全員に履歴を表示できません。公開後に再確認が必要です。Star や成長を捏造せず、空の履歴を架空のデータで置き換えません。[公式の埋め込みガイド](https://www.star-history.com/blog/how-to-use-github-star-history/)も参照してください。
+公式のライブ SVG はこの公開リポジトリの実際の GitHub データを使います。2026-10-14 に確認した Star 数は 0 件なので、履歴が空なのは想定どおりです。確認時にはライト・ダーク両テーマの画像 URL が HTTP 200 を返しました。Star や成長を捏造しません。[公式の埋め込みガイド](https://www.star-history.com/blog/how-to-use-github-star-history/)も参照してください。
 
 ## 貢献とロードマップ
 

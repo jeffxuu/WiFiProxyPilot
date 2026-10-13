@@ -1,0 +1,72 @@
+name: Publish verified v3.2 prerelease
+on:
+  workflow_dispatch:
+    inputs:
+      build_run_id:
+        description: Successful Windows build run ID
+        required: true
+        type: string
+      source_sha:
+        description: Exact tested source commit SHA
+        required: true
+        type: string
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: pilot-v32-release
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: windows-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BUILD_RUN_ID: ${{ inputs.build_run_id }}
+      SOURCE_SHA: ${{ inputs.source_sha }}
+    steps:
+      - name: Verify successful build identity
+        shell: pwsh
+        run: |
+          if ($env:BUILD_RUN_ID -notmatch '^\d+$' -or $env:SOURCE_SHA -notmatch '^[0-9a-f]{40}$') { throw 'Invalid build identity' }
+          $run=gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/$env:BUILD_RUN_ID" | ConvertFrom-Json
+          if ($LASTEXITCODE -or $run.status -ne 'completed' -or $run.conclusion -ne 'success' -or $run.head_sha -ne $env:SOURCE_SHA -or $run.event -ne 'push' -or $run.path -ne '.github/workflows/build.yml') { throw 'Source build is not verified successful' }
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_sha }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: WiFiProxyPilot-v3.2.0-beta.1-${{ inputs.source_sha }}
+          run-id: ${{ inputs.build_run_id }}
+          github-token: ${{ github.token }}
+          path: release-download
+      - name: Verify package hashes and publish prerelease
+        shell: pwsh
+        run: |
+          $dist=Join-Path (Get-Location) 'release-download/dist'
+          $hashFile=Join-Path $dist 'SHA256.txt'
+          $expected=@{}
+          foreach($line in Get-Content -LiteralPath $hashFile) {
+            if ($line -notmatch '^([0-9a-f]{64})\s+(WiFiProxySwitcher\.(exe|zip))$') { throw 'Invalid checksum record' }
+            if ($expected.ContainsKey($Matches[2])) { throw 'Duplicate checksum record' }
+            $expected[$Matches[2]]=$Matches[1]
+          }
+          if ($expected.Count -ne 2) { throw 'Missing checksums' }
+          foreach($name in @('WiFiProxySwitcher.exe','WiFiProxySwitcher.zip')) {
+            $actual=(Get-FileHash -LiteralPath (Join-Path $dist $name) -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($actual -ne $expected[$name]) { throw "Package hash mismatch: $name" }
+          }
+          $version=[Diagnostics.FileVersionInfo]::GetVersionInfo((Join-Path $dist 'WiFiProxySwitcher.exe')).ProductVersion
+          if ($version -ne ('3.2.0-beta.1+'+$env:SOURCE_SHA)) { throw 'Executable version/source mismatch' }
+          $tag='v3.2.0-beta.1'
+          $release=gh release view $tag --repo $env:GITHUB_REPOSITORY --json isDraft 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            if (-not ($release | ConvertFrom-Json).isDraft) { throw 'Release already published; refusing replacement' }
+            gh release edit $tag --repo $env:GITHUB_REPOSITORY --target $env:SOURCE_SHA --notes-file release/NOTES-v3.2.0-beta.1.md --draft --prerelease
+          } else {
+            gh release create $tag --repo $env:GITHUB_REPOSITORY --target $env:SOURCE_SHA --title 'WiFi Proxy Pilot v3.2.0-beta.1' --notes-file release/NOTES-v3.2.0-beta.1.md --draft --prerelease
+          }
+          if ($LASTEXITCODE) { throw 'Draft preparation failed' }
+          gh release upload $tag (Join-Path $dist 'WiFiProxySwitcher.exe') (Join-Path $dist 'WiFiProxySwitcher.zip') $hashFile --repo $env:GITHUB_REPOSITORY --clobber
+          if ($LASTEXITCODE) { throw 'Release upload failed' }
+          gh release edit $tag --repo $env:GITHUB_REPOSITORY --draft=false --prerelease --latest=false
+          if ($LASTEXITCODE) { throw 'Prerelease publication failed' }

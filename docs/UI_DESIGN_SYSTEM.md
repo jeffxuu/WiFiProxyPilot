@@ -1,6 +1,6 @@
-# macOS-inspired WPF visual prototype
+# v3.2 macOS-inspired WPF design system
 
-2026-10-14 · Design review checkpoint, before final release.
+2026-10-14 · Public Beta design; remaining native/accessibility acceptance is separate.
 
 ## Implemented stack
 
@@ -30,17 +30,9 @@ The prototype uses a 980×660 DIP window, 220 DIP sidebar, 48 DIP toolbar, 42 DI
 
 Hover, pressed, keyboard focus and disabled states are defined in templates. Page transitions use a 140ms opacity animation only when Windows client-area animations are enabled; preview/measurement disables it to avoid hiding layout timings. Noncurrent pages are instantiated on demand and reused. Status/configuration/cache work runs on worker threads; logs load only on the log page, with the existing 64 KiB/100-event bound.
 
-## Structure change
+## Current architecture
 
-| v3.1 | This prototype |
-| --- | --- |
-| WinForms four-page control tree created eagerly | WPF shell plus lazy views |
-| Six equal overview tiles | One settings group with automatic switch and observed proxy, compact diagnostics |
-| Protected built-in rows | All rules editable/deletable, valid empty list |
-| Checkbox-heavy settings | Group rows, switches, segmented Strict/Safe |
-| Window-driven business actions | View models call application services and the existing engine |
-
-Legacy WinForms source remains in Git and is excluded from the formal GUI build. The EXE has one user-facing GUI route. The independent PowerShell engine, installation identity, paths, backup and task/mutex ownership remain compatible.
+WPF shell with lazy cached pages, user-owned editable rules, grouped settings and application services. The EXE has one GUI route; its independent PowerShell engine, original backup, install paths and task/mutex identities remain compatible.
 
 ## Real rendering evidence
 
@@ -53,7 +45,7 @@ Captured from the running WPF visual tree on Windows 11 at 125% DPI (1225×825 p
 
 ## Preview
 
-Run `powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/Preview.ps1` after building. `/preview /output <owned-directory>/preview.json` uses an isolated configuration, a separate single-instance namespace and prohibits real proxy/task/install writes. It can coexist with the installed v3.0/v3.1 application. Closing hides it; its tray menu exits only the preview GUI.
+Run `powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/Preview.ps1` after building. `/preview /output <owned-directory>/preview.json` uses an isolated configuration, a separate single-instance namespace and prohibits real proxy/task/install writes. It can coexist with the installed application. Closing hides it; its tray menu exits only the preview GUI.
 
 Build: `powershell.exe -NoProfile -ExecutionPolicy Bypass -File release/Build.ps1 -Dotnet <dotnet.exe>`. The self-contained EXE is `release/dist/WiFiProxySwitcher.exe`; this filename preserves upgrade identity while the displayed product is WiFi Proxy Pilot.
 

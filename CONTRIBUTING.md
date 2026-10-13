@@ -1,6 +1,6 @@
 # Contributing
 
-Build on the complete product source in main, preserve existing history and user configuration, and keep changes focused on a concrete user problem. The repository is WiFiProxyPilot and remains private; publication is a separate owner decision.
+Build on the complete WiFi Proxy Pilot source in main, preserve user configuration and meaningful regression checks, and focus changes on a concrete user problem. The repository is Public. Beta download assets are attached to the versioned Release; source, documentation and download versions must agree.
 
 ## Development
 

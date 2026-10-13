@@ -8,7 +8,6 @@
     <DebugType>none</DebugType><DebugSymbols>false</DebugSymbols><TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
   <ItemGroup><ProjectReference Include="../WiFiProxySwitcher.Core/WiFiProxySwitcher.Core.csproj" />
-    <Compile Remove="MainForm.cs;TrayContext.cs;DesktopSmoke.cs" />
     <Using Remove="System.Windows.Forms" /><Using Remove="System.Drawing" />
     <Using Include="System.IO" />
     <EmbeddedResource Include="../../release/generated/payload.zip" LogicalName="payload.zip" />

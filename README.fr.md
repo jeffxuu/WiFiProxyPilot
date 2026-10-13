@@ -6,7 +6,7 @@
   ![Windows 11](https://img.shields.io/badge/Windows-11-0078D4)
   ![.NET 8](https://img.shields.io/badge/.NET-8-512BD4)
   ![WPF](https://img.shields.io/badge/UI-WPF-6557E8)
-  [![Release](https://img.shields.io/github/v/release/jeffxuu/WiFiProxyPilot)](https://github.com/jeffxuu/WiFiProxyPilot/releases)
+  [![Release](https://img.shields.io/github/v/release/jeffxuu/WiFiProxyPilot?include_prereleases)](https://github.com/jeffxuu/WiFiProxyPilot/releases)
   [![Licence MIT](https://img.shields.io/badge/License-MIT-green)](LICENSE)
   [![GitHub Stars](https://img.shields.io/github/stars/jeffxuu/WiFiProxyPilot?style=flat)](https://github.com/jeffxuu/WiFiProxyPilot/stargazers)
 </div>
@@ -15,7 +15,7 @@
 
 **Votre Wi-Fi change. Votre proxy suit.** Utilisez un proxy hébergé sur la passerelle des réseaux Wi-Fi ordinaires et une connexion directe sur les réseaux de votre choix. Gérez le tout depuis une interface WPF moderne ou la zone de notification.
 
-> **v3.2.0-beta.1 est en développement.** Les captures montrent la véritable application WPF avec des données réseau simulées. La validation sur un réseau réel, à l'ouverture de session/en sortie de veille, ainsi que pour l'installation et la désinstallation reste distincte des tests de régression isolés. L'interface actuelle est en chinois simplifié ; les traductions du README ne signifient pas que l'interface est traduite. Le dépôt reste Private en attendant la décision de publication de son propriétaire. Les badges externes et Star History peuvent donc être indisponibles.
+> **v3.2.0-beta.1 est publiée en tant que Beta/Prerelease, pas comme version stable.** Les captures montrent la véritable application WPF avec des données réseau simulées. La validation sur un réseau réel, à l'ouverture de session/en sortie de veille, ainsi que pour l'installation et la désinstallation reste distincte des tests de régression isolés. L'interface actuelle est en chinois simplifié ; les traductions du README ne signifient pas que l'interface est traduite. Le dépôt est Public, avec confirmation de son propriétaire.
 
 ## Captures d'écran
 
@@ -49,9 +49,9 @@ Toutes les images sont des captures réelles de l'application dans un environnem
 
 ## Téléchargement et installation
 
-**[Télécharger la dernière version publiée : ancienne v3.0.0](https://github.com/jeffxuu/WiFiProxyPilot/releases/latest)** · **[Consulter les versions](https://github.com/jeffxuu/WiFiProxyPilot/releases)** · **[Artefacts de compilation v3.2](https://github.com/jeffxuu/WiFiProxyPilot/actions/workflows/build.yml)**
+**[Télécharger v3.2.0-beta.1 — Beta/Prerelease](https://github.com/jeffxuu/WiFiProxyPilot/releases/tag/v3.2.0-beta.1)** · **[EXE](https://github.com/jeffxuu/WiFiProxyPilot/releases/download/v3.2.0-beta.1/WiFiProxySwitcher.exe)** · **[ZIP](https://github.com/jeffxuu/WiFiProxyPilot/releases/download/v3.2.0-beta.1/WiFiProxySwitcher.zip)** · **[SHA256.txt](https://github.com/jeffxuu/WiFiProxyPilot/releases/download/v3.2.0-beta.1/SHA256.txt)** · **[Consulter les versions](https://github.com/jeffxuu/WiFiProxyPilot/releases)** · **[Artefacts de compilation v3.2](https://github.com/jeffxuu/WiFiProxyPilot/actions/workflows/build.yml)**
 
-La v3.0.0 publiée contient l'ancienne interface et l'ancien comportement ; elle **n'inclut pas** l'interface WPF v3.2 présentée ici. v3.1.0 est une Draft Prerelease. Aucune version v3.2 n'est actuellement publiée. L'accès aux artefacts exige les droits sur le dépôt ; ces artefacts expirent et les brouillons ne sont pas des téléchargements publics. Vérifiez la version, les notes de publication et SHA256 avant l'installation. Le badge Release suit les versions publiées, pas la version en développement.
+La version publiée v3.2.0-beta.1 contient l'interface WPF présentée ci-dessus et porte le statut **Beta/Prerelease**. Il ne s'agit pas d'une version stable. Vérifiez la version, les notes de publication et SHA256 avant l'installation. Les artefacts de compilation constituent un téléchargement distinct et expirent. Le badge Release inclut les préversions.
 
 La plateforme prévue est **Windows 11 x64**, avec Windows PowerShell 5.1, le service WLAN et Windows Script Host. L'EXE autonome ne nécessite pas d'installer séparément .NET, Python, Node.js ou WebView2. Aucune compatibilité plus large avec Windows n'est affirmée. Les politiques d'une organisation peuvent restreindre les informations WLAN, le proxy ou les tâches planifiées. Les compilations actuelles ne sont pas signées ; gardez les protections de sécurité Windows activées.
 
@@ -120,7 +120,7 @@ Utilisez **Restaurer la configuration initiale**, **Paramètres → Opérations 
 - L'application gère le **proxy manuel** de l'utilisateur Windows actuel ; elle ne modifie ni DNS, ni routes, ni règles de pare-feu.
 - Les journaux et diagnostics peuvent contenir des identifiants réseau. Vérifiez-les et anonymisez-les avant de les partager.
 
-Les commits historiques et les anciens documents de publication contiennent des exemples réseau et des chemins de machine. Garder le dépôt Private ne les supprime pas. La publication exige une revue séparée par le propriétaire de [l'audit avant publication](docs/PUBLIC_REPOSITORY_AUDIT.md). Pour signaler un problème de sécurité, consultez [SECURITY.md](SECURITY.md).
+Pour signaler un problème de sécurité, consultez [SECURITY.md](SECURITY.md).
 
 ## Questions fréquentes
 
@@ -154,7 +154,7 @@ Si WiFi Proxy Pilot facilite votre travail, pensez à ajouter une étoile au pro
   </picture>
 </a>
 
-Le SVG officiel en direct utilise les véritables données GitHub de ce dépôt. Tant que celui-ci reste Private, le service externe ne peut pas rendre son historique visible à tous. Il faudra le vérifier après publication ; aucune étoile ni croissance n'est inventée et un historique vide n'est pas remplacé par des données fictives. Consultez le [guide officiel d'intégration](https://www.star-history.com/blog/how-to-use-github-star-history/).
+Le SVG officiel en direct utilise les véritables données GitHub de ce dépôt. Vérification du 14 octobre 2026 : **0 étoile** et réponse **HTTP 200** pour les SVG des thèmes clair et sombre. Avec zéro étoile, un historique vide est attendu ; aucune étoile ni croissance n'est inventée et cet historique n'est pas remplacé par des données fictives. Consultez le [guide officiel d'intégration](https://www.star-history.com/blog/how-to-use-github-star-history/).
 
 ## Contributions et feuille de route
 

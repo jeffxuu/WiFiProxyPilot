@@ -6,7 +6,7 @@
   ![Windows 11](https://img.shields.io/badge/Windows-11-0078D4)
   ![.NET 8](https://img.shields.io/badge/.NET-8-512BD4)
   ![WPF](https://img.shields.io/badge/UI-WPF-6557E8)
-  [![Release](https://img.shields.io/github/v/release/jeffxuu/WiFiProxyPilot)](https://github.com/jeffxuu/WiFiProxyPilot/releases)
+  [![Release](https://img.shields.io/github/v/release/jeffxuu/WiFiProxyPilot?include_prereleases)](https://github.com/jeffxuu/WiFiProxyPilot/releases)
   [![Лицензия MIT](https://img.shields.io/badge/License-MIT-green)](LICENSE)
   [![GitHub Stars](https://img.shields.io/github/stars/jeffxuu/WiFiProxyPilot?style=flat)](https://github.com/jeffxuu/WiFiProxyPilot/stargazers)
 </div>
@@ -15,7 +15,7 @@
 
 **Сеть Wi-Fi меняется — прокси следует за ней.** Используйте прокси на шлюзе в обычных сетях и прямое подключение в выбранных вами сетях. Управляйте настройками через современное приложение WPF или значок в системном трее.
 
-> **v3.2.0-beta.1 находится в разработке.** Скриншоты сделаны в настоящем приложении WPF с имитацией сетевых данных. Проверки реальной сети, входа/сна, установки и удаления выполняются отдельно от изолированных регрессионных тестов. Интерфейс сейчас только на упрощённом китайском; переводы README не означают локализацию приложения. Репозиторий остаётся Private до решения владельца о публикации, поэтому внешние значки и Star History могут быть недоступны.
+> **v3.2.0-beta.1 — Beta/Prerelease.** Скриншоты сделаны в настоящем приложении WPF с имитацией сетевых данных. Проверки реальной сети, входа/сна, установки и удаления выполняются отдельно от изолированных регрессионных тестов. Интерфейс сейчас только на упрощённом китайском; переводы README не означают локализацию приложения. Репозиторий имеет статус Public.
 
 ## Скриншоты
 
@@ -49,9 +49,9 @@
 
 ## Загрузка и установка
 
-**[Скачать последний опубликованный релиз — прежний v3.0.0](https://github.com/jeffxuu/WiFiProxyPilot/releases/latest)** · **[Все релизы](https://github.com/jeffxuu/WiFiProxyPilot/releases)** · **[Артефакты сборки v3.2](https://github.com/jeffxuu/WiFiProxyPilot/actions/workflows/build.yml)**
+**[Скачать v3.2.0-beta.1 — Beta/Prerelease](https://github.com/jeffxuu/WiFiProxyPilot/releases/tag/v3.2.0-beta.1)** · **[EXE](https://github.com/jeffxuu/WiFiProxyPilot/releases/download/v3.2.0-beta.1/WiFiProxySwitcher.exe)** · **[ZIP](https://github.com/jeffxuu/WiFiProxyPilot/releases/download/v3.2.0-beta.1/WiFiProxySwitcher.zip)** · **[SHA256](https://github.com/jeffxuu/WiFiProxyPilot/releases/download/v3.2.0-beta.1/SHA256.txt)** · **[Артефакты сборки](https://github.com/jeffxuu/WiFiProxyPilot/actions/workflows/build.yml)**
 
-Опубликованный v3.0.0 содержит прежний интерфейс и поведение, **без** показанного выше интерфейса WPF v3.2. v3.1.0 — Draft Prerelease; опубликованного релиза v3.2 пока нет. Артефакты сборки требуют доступа к репозиторию и имеют срок хранения. Черновики не являются публичными загрузками. Перед установкой проверьте версию, описание релиза и SHA256. Значок Release отражает опубликованные версии, а не версию разработки.
+v3.2.0-beta.1 доступна как **Beta/Prerelease**, а не как полностью стабильный финальный релиз. Перед установкой проверьте версию, описание релиза и контрольные суммы в `SHA256.txt`. Значок Release учитывает предварительные релизы. Артефакты GitHub имеют срок хранения; для этой версии используйте файлы релиза по ссылкам выше.
 
 Целевая платформа — **Windows 11 x64**, Windows PowerShell 5.1, служба WLAN и Windows Script Host. Автономная EXE не требует отдельной установки .NET, Python, Node.js или WebView2. Совместимость с другими версиями Windows не заявлена. Политики организации могут ограничить получение данных WLAN, изменение прокси или планировщик задач. Текущие сборки не подписаны; оставляйте защиту Windows включённой.
 
@@ -120,7 +120,7 @@ Wi-Fi подключён → Прочитать стабильные данны�
 - Изменяется **ручной прокси** текущего пользователя Windows. DNS, маршруты и правила брандмауэра не меняются.
 - Журналы и диагностика могут содержать идентификаторы сети. Перед передачей проверьте их и удалите частные сведения.
 
-В исторических коммитах и материалах старых релизов есть прежние примеры сетей и пути машин. Статус Private не удаляет эти данные. До публикации владелец должен отдельно рассмотреть [аудит публичного репозитория](docs/PUBLIC_REPOSITORY_AUDIT.md). Сообщайте об уязвимостях по [SECURITY.md](SECURITY.md).
+Сообщайте об уязвимостях по [SECURITY.md](SECURITY.md).
 
 ## Частые вопросы
 
@@ -154,7 +154,7 @@ Wi-Fi подключён → Прочитать стабильные данны�
   </picture>
 </a>
 
-Официальный SVG использует реальные данные GitHub этого репозитория. Пока он Private, внешний сервис не может показывать историю всем. После публикации необходима повторная проверка. Звёзды и рост не выдумываются; пустая история не заменяется фиктивными данными. См. [официальное руководство по встраиванию](https://www.star-history.com/blog/how-to-use-github-star-history/).
+Официальный SVG в реальном времени использует настоящие данные GitHub этого публичного репозитория. На 2026-10-14 подтверждено 0 звёзд, поэтому пустая история ожидаема. При проверке URL изображений для светлой и тёмной темы обе вернули HTTP 200. Звёзды и рост не выдумываются. См. [официальное руководство по встраиванию](https://www.star-history.com/blog/how-to-use-github-star-history/).
 
 ## Участие и планы
 

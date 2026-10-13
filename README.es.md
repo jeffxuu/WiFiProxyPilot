@@ -6,7 +6,7 @@
   ![Windows 11](https://img.shields.io/badge/Windows-11-0078D4)
   ![.NET 8](https://img.shields.io/badge/.NET-8-512BD4)
   ![WPF](https://img.shields.io/badge/UI-WPF-6557E8)
-  [![Release](https://img.shields.io/github/v/release/jeffxuu/WiFiProxyPilot)](https://github.com/jeffxuu/WiFiProxyPilot/releases)
+  [![Release](https://img.shields.io/github/v/release/jeffxuu/WiFiProxyPilot?include_prereleases)](https://github.com/jeffxuu/WiFiProxyPilot/releases)
   [![Licencia MIT](https://img.shields.io/badge/License-MIT-green)](LICENSE)
   [![GitHub Stars](https://img.shields.io/github/stars/jeffxuu/WiFiProxyPilot?style=flat)](https://github.com/jeffxuu/WiFiProxyPilot/stargazers)
 </div>
@@ -15,7 +15,7 @@
 
 **Tu Wi-Fi cambia. Tu proxy lo sigue.** Usa un proxy alojado en la puerta de enlace de las redes Wi-Fi habituales y conexión directa en las redes que elijas. Contrólalo desde una interfaz WPF moderna o la bandeja del sistema.
 
-> **v3.2.0-beta.1 está en desarrollo.** Las capturas muestran la aplicación WPF real con datos de red simulados. La aceptación con redes reales, inicio de sesión/suspensión, instalación y desinstalación sigue separada de las pruebas de regresión aisladas. La interfaz actual está en chino simplificado; estas traducciones del README no implican que la interfaz esté traducida. El repositorio sigue siendo Private hasta que su propietario decida publicarlo, por lo que los indicadores externos y Star History pueden no estar disponibles.
+> **v3.2.0-beta.1 está publicada como Beta/Prerelease, no como versión estable.** Las capturas muestran la aplicación WPF real con datos de red simulados. La aceptación con redes reales, inicio de sesión/suspensión, instalación y desinstalación sigue separada de las pruebas de regresión aisladas. La interfaz actual está en chino simplificado; estas traducciones del README no implican que la interfaz esté traducida. El repositorio es Public, con confirmación de su propietario.
 
 ## Capturas de pantalla
 
@@ -49,9 +49,9 @@ Todas las imágenes son capturas reales de la aplicación en un entorno aislado,
 
 ## Descarga e instalación
 
-**[Descargar la última versión publicada: v3.0.0 anterior](https://github.com/jeffxuu/WiFiProxyPilot/releases/latest)** · **[Ver versiones](https://github.com/jeffxuu/WiFiProxyPilot/releases)** · **[Artefactos de compilación v3.2](https://github.com/jeffxuu/WiFiProxyPilot/actions/workflows/build.yml)**
+**[Descargar v3.2.0-beta.1 — Beta/Prerelease](https://github.com/jeffxuu/WiFiProxyPilot/releases/tag/v3.2.0-beta.1)** · **[EXE](https://github.com/jeffxuu/WiFiProxyPilot/releases/download/v3.2.0-beta.1/WiFiProxySwitcher.exe)** · **[ZIP](https://github.com/jeffxuu/WiFiProxyPilot/releases/download/v3.2.0-beta.1/WiFiProxySwitcher.zip)** · **[SHA256.txt](https://github.com/jeffxuu/WiFiProxyPilot/releases/download/v3.2.0-beta.1/SHA256.txt)** · **[Ver versiones](https://github.com/jeffxuu/WiFiProxyPilot/releases)** · **[Artefactos de compilación v3.2](https://github.com/jeffxuu/WiFiProxyPilot/actions/workflows/build.yml)**
 
-La v3.0.0 publicada contiene la interfaz y el comportamiento anteriores; **no** incluye la interfaz WPF v3.2 de estas capturas. v3.1.0 es una Draft Prerelease. Actualmente no hay una versión v3.2 publicada. Los artefactos de compilación requieren acceso al repositorio y caducan; los borradores no son descargas públicas. Revisa la versión, sus notas y SHA256 antes de instalar. El indicador Release muestra versiones publicadas, no la versión en desarrollo.
+La versión publicada v3.2.0-beta.1 contiene la interfaz WPF mostrada arriba y está marcada como **Beta/Prerelease**. No es una versión estable. Revisa la versión, sus notas y SHA256 antes de instalar. Los artefactos de compilación son una vía separada de descarga y caducan. El indicador Release incluye las versiones preliminares.
 
 La plataforma prevista es **Windows 11 x64**, con Windows PowerShell 5.1, el servicio WLAN y Windows Script Host. El EXE autocontenido no requiere instalar .NET, Python, Node.js ni WebView2 por separado. No se afirma compatibilidad con otras versiones de Windows. Las políticas de una organización pueden limitar la información WLAN, el proxy o las tareas programadas. Las compilaciones actuales no están firmadas; mantén activadas las protecciones de seguridad de Windows.
 
@@ -120,7 +120,7 @@ Usa **Restaurar configuración original**, **Configuración → Operaciones avan
 - La aplicación gestiona el **proxy manual** del usuario actual de Windows; no modifica DNS, rutas ni reglas de cortafuegos.
 - Los registros y diagnósticos pueden contener identificadores de red. Revísalos y anonimízalos antes de compartirlos.
 
-Los commits históricos y los materiales de versiones antiguas contienen ejemplos de redes y rutas de máquina. Mantener el repositorio Private no los elimina. La publicación requiere que su propietario revise por separado la [auditoría previa a la publicación](docs/PUBLIC_REPOSITORY_AUDIT.md). Para problemas de seguridad, consulta [SECURITY.md](SECURITY.md).
+Para problemas de seguridad, consulta [SECURITY.md](SECURITY.md).
 
 ## Preguntas frecuentes
 
@@ -154,7 +154,7 @@ Si WiFi Proxy Pilot facilita tu trabajo, considera dar una estrella al proyecto.
   </picture>
 </a>
 
-El SVG oficial en vivo usa los datos reales de GitHub de este repositorio. Mientras sea Private, el servicio externo no puede mostrar su historial a todo el mundo. Se deberá comprobar de nuevo tras publicarlo; no se inventan estrellas ni crecimiento, ni se sustituye un historial vacío por datos ficticios. Consulta la [guía oficial de inserción](https://www.star-history.com/blog/how-to-use-github-star-history/).
+El SVG oficial en vivo usa los datos reales de GitHub de este repositorio. Verificado el 14 de octubre de 2026: **0 estrellas** y respuesta **HTTP 200** para los SVG de los temas claro y oscuro. Con cero estrellas se espera un historial vacío; no se inventan estrellas ni crecimiento, ni se sustituye ese historial por datos ficticios. Consulta la [guía oficial de inserción](https://www.star-history.com/blog/how-to-use-github-star-history/).
 
 ## Contribuciones y hoja de ruta
 

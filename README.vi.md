@@ -6,7 +6,7 @@
   ![Windows 11](https://img.shields.io/badge/Windows-11-0078D4)
   ![.NET 8](https://img.shields.io/badge/.NET-8-512BD4)
   ![WPF](https://img.shields.io/badge/UI-WPF-6557E8)
-  [![Release](https://img.shields.io/github/v/release/jeffxuu/WiFiProxyPilot)](https://github.com/jeffxuu/WiFiProxyPilot/releases)
+  [![Release](https://img.shields.io/github/v/release/jeffxuu/WiFiProxyPilot?include_prereleases)](https://github.com/jeffxuu/WiFiProxyPilot/releases)
   [![Giấy phép MIT](https://img.shields.io/badge/License-MIT-green)](LICENSE)
   [![GitHub Stars](https://img.shields.io/github/stars/jeffxuu/WiFiProxyPilot?style=flat)](https://github.com/jeffxuu/WiFiProxyPilot/stargazers)
 </div>
@@ -15,7 +15,7 @@
 
 **Wi-Fi thay đổi, proxy chuyển theo.** Dùng proxy chạy trên gateway ở mạng Wi-Fi thông thường và kết nối trực tiếp ở các mạng bạn chọn. Quản lý qua giao diện WPF hiện đại hoặc biểu tượng ở khay hệ thống.
 
-> **v3.2.0-beta.1 đang được phát triển.** Ảnh chụp là ứng dụng WPF thật với dữ liệu mạng mô phỏng. Việc nghiệm thu mạng thật, đăng nhập/ngủ, cài đặt và gỡ cài đặt được thực hiện riêng với kiểm thử hồi quy cô lập. UI hiện chỉ có tiếng Trung giản thể; các bản README dịch không có nghĩa là UI đã hỗ trợ những ngôn ngữ này. Kho mã vẫn là Private cho đến khi chủ sở hữu quyết định công khai, nên huy hiệu bên ngoài và Star History có thể chưa hiển thị.
+> **v3.2.0-beta.1 là bản Beta/Prerelease.** Ảnh chụp là ứng dụng WPF thật với dữ liệu mạng mô phỏng. Việc nghiệm thu mạng thật, đăng nhập/ngủ, cài đặt và gỡ cài đặt được thực hiện riêng với kiểm thử hồi quy cô lập. UI hiện chỉ có tiếng Trung giản thể; các bản README dịch không có nghĩa là UI đã hỗ trợ những ngôn ngữ này. Kho mã có trạng thái Public.
 
 ## Ảnh chụp màn hình
 
@@ -49,9 +49,9 @@ Tất cả ảnh đều được chụp từ ứng dụng thật trong môi trư
 
 ## Tải xuống và cài đặt
 
-**[Tải bản phát hành mới nhất — bản cũ v3.0.0](https://github.com/jeffxuu/WiFiProxyPilot/releases/latest)** · **[Danh sách Releases](https://github.com/jeffxuu/WiFiProxyPilot/releases)** · **[Tệp build v3.2](https://github.com/jeffxuu/WiFiProxyPilot/actions/workflows/build.yml)**
+**[Tải v3.2.0-beta.1 — Beta/Prerelease](https://github.com/jeffxuu/WiFiProxyPilot/releases/tag/v3.2.0-beta.1)** · **[EXE](https://github.com/jeffxuu/WiFiProxyPilot/releases/download/v3.2.0-beta.1/WiFiProxySwitcher.exe)** · **[ZIP](https://github.com/jeffxuu/WiFiProxyPilot/releases/download/v3.2.0-beta.1/WiFiProxySwitcher.zip)** · **[SHA256](https://github.com/jeffxuu/WiFiProxyPilot/releases/download/v3.2.0-beta.1/SHA256.txt)** · **[Tệp build](https://github.com/jeffxuu/WiFiProxyPilot/actions/workflows/build.yml)**
 
-v3.0.0 đã phát hành dùng giao diện và hành vi trước đây, **không** có UI WPF v3.2 trong ảnh trên. v3.1.0 là Draft Prerelease; hiện chưa có v3.2 được phát hành. Tệp build yêu cầu quyền truy cập kho mã và có hạn lưu trữ. Draft không phải bản tải công khai. Kiểm tra phiên bản, ghi chú phát hành và SHA256 trước khi cài. Huy hiệu Release theo bản đã phát hành, không phải phiên bản đang phát triển.
+v3.2.0-beta.1 được cung cấp dưới dạng **Beta/Prerelease**, chưa phải bản chính thức hoàn toàn ổn định. Kiểm tra phiên bản, ghi chú phát hành và checksum trong `SHA256.txt` trước khi cài. Huy hiệu Release bao gồm cả Prerelease. Tệp build của GitHub có hạn lưu trữ; dùng các liên kết tệp release phía trên để tải phiên bản này.
 
 Nền tảng mục tiêu là **Windows 11 x64**, Windows PowerShell 5.1, dịch vụ WLAN và Windows Script Host. EXE tự chứa không yêu cầu cài thêm .NET, Python, Node.js hay WebView2. Không khẳng định đã kiểm chứng tương thích với các phiên bản Windows khác. Chính sách tổ chức có thể hạn chế dữ liệu WLAN, thiết lập proxy hoặc tác vụ theo lịch. Các build hiện chưa được ký; hãy giữ bảo vệ Windows bật.
 
@@ -120,7 +120,7 @@ Dùng **Restore original configuration**, **Settings → Advanced operations →
 - Công cụ quản lý **proxy thủ công** của người dùng Windows hiện tại, không đổi DNS, tuyến mạng hoặc quy tắc tường lửa.
 - Nhật ký/chẩn đoán có thể chứa định danh mạng. Xem lại và ẩn thông tin riêng trước khi chia sẻ.
 
-Lịch sử commit và tài liệu release cũ có ví dụ mạng trước đây và đường dẫn máy. Trạng thái Private không xóa chúng. Trước khi công khai, chủ sở hữu cần xem riêng [kiểm toán kho mã công khai](docs/PUBLIC_REPOSITORY_AUDIT.md). Báo vấn đề bảo mật theo [SECURITY.md](SECURITY.md).
+Báo vấn đề bảo mật theo [SECURITY.md](SECURITY.md).
 
 ## Câu hỏi thường gặp
 
@@ -154,7 +154,7 @@ Nếu WiFi Proxy Pilot giúp công việc thuận tiện hơn, hãy cân nhắc 
   </picture>
 </a>
 
-SVG trực tiếp chính thức dùng dữ liệu GitHub thật của kho mã này. Khi kho còn Private, dịch vụ ngoài không thể hiển thị lịch sử cho mọi người. Cần kiểm tra lại sau khi công khai. Không bịa Star hay tăng trưởng, không thay lịch sử rỗng bằng dữ liệu giả. Xem [hướng dẫn nhúng chính thức](https://www.star-history.com/blog/how-to-use-github-star-history/).
+SVG trực tiếp chính thức dùng dữ liệu GitHub thật của kho mã công khai này. Số Star được xác minh ngày 2026-10-14 là 0, nên lịch sử rỗng là điều bình thường. Khi kiểm tra, URL ảnh cho cả giao diện sáng và tối đều trả về HTTP 200. Không bịa Star hay tăng trưởng. Xem [hướng dẫn nhúng chính thức](https://www.star-history.com/blog/how-to-use-github-star-history/).
 
 ## Đóng góp và lộ trình
 

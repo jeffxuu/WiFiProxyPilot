@@ -6,7 +6,7 @@
   ![Windows 11](https://img.shields.io/badge/Windows-11-0078D4)
   ![.NET 8](https://img.shields.io/badge/.NET-8-512BD4)
   ![WPF](https://img.shields.io/badge/UI-WPF-6557E8)
-  [![Release](https://img.shields.io/github/v/release/jeffxuu/WiFiProxyPilot)](https://github.com/jeffxuu/WiFiProxyPilot/releases)
+  [![Release](https://img.shields.io/github/v/release/jeffxuu/WiFiProxyPilot?include_prereleases)](https://github.com/jeffxuu/WiFiProxyPilot/releases)
   [![MIT 라이선스](https://img.shields.io/badge/License-MIT-green)](LICENSE)
   [![GitHub Stars](https://img.shields.io/github/stars/jeffxuu/WiFiProxyPilot?style=flat)](https://github.com/jeffxuu/WiFiProxyPilot/stargazers)
 </div>
@@ -15,7 +15,7 @@
 
 **Wi-Fi가 바뀌면 프록시도 따라 바뀝니다.** 일반 Wi-Fi에서는 게이트웨이에서 제공하는 프록시를 사용하고, 선택한 네트워크에서는 직접 연결할 수 있습니다. 현대적인 WPF 창이나 시스템 트레이에서 관리하세요.
 
-> **v3.2.0-beta.1은 개발 중입니다.** 스크린샷은 실제 WPF 앱에 모의 네트워크 데이터를 표시한 것입니다. 실제 네트워크, 로그인/절전, 설치/제거에 대한 검증은 격리된 회귀 테스트와 별도입니다. 현재 UI는 중국어 간체만 지원하며, README 번역이 UI 다국어 지원을 뜻하지는 않습니다. 소유자가 공개를 결정하기 전까지 저장소는 Private 상태이므로 외부 배지와 Star History가 표시되지 않을 수 있습니다.
+> **v3.2.0-beta.1은 Beta/Prerelease입니다.** 스크린샷은 실제 WPF 앱에 모의 네트워크 데이터를 표시한 것입니다. 실제 네트워크, 로그인/절전, 설치/제거에 대한 검증은 격리된 회귀 테스트와 별도입니다. 현재 UI는 중국어 간체만 지원하며, README 번역이 UI 다국어 지원을 뜻하지는 않습니다. 저장소는 Public 상태입니다.
 
 ## 스크린샷
 
@@ -49,9 +49,9 @@
 
 ## 다운로드 및 설치
 
-**[최신 공개 릴리스 다운로드 — 이전 버전 v3.0.0](https://github.com/jeffxuu/WiFiProxyPilot/releases/latest)** · **[릴리스 목록](https://github.com/jeffxuu/WiFiProxyPilot/releases)** · **[v3.2 빌드 아티팩트](https://github.com/jeffxuu/WiFiProxyPilot/actions/workflows/build.yml)**
+**[v3.2.0-beta.1 다운로드 — Beta/Prerelease](https://github.com/jeffxuu/WiFiProxyPilot/releases/tag/v3.2.0-beta.1)** · **[EXE](https://github.com/jeffxuu/WiFiProxyPilot/releases/download/v3.2.0-beta.1/WiFiProxySwitcher.exe)** · **[ZIP](https://github.com/jeffxuu/WiFiProxyPilot/releases/download/v3.2.0-beta.1/WiFiProxySwitcher.zip)** · **[SHA256](https://github.com/jeffxuu/WiFiProxyPilot/releases/download/v3.2.0-beta.1/SHA256.txt)** · **[빌드 아티팩트](https://github.com/jeffxuu/WiFiProxyPilot/actions/workflows/build.yml)**
 
-공개된 v3.0.0에는 이전 인터페이스와 동작이 들어 있으며, 위의 v3.2 WPF UI는 **포함하지 않습니다**. v3.1.0은 Draft Prerelease이고, 현재 공개된 v3.2 릴리스는 없습니다. 빌드 아티팩트에는 저장소 접근 권한이 필요하며 보관 기간이 제한됩니다. Draft는 공개 다운로드가 아닙니다. 설치 전에 버전, 릴리스 노트, SHA256을 확인하세요. Release 배지는 개발 버전이 아닌 공개 릴리스를 표시합니다.
+v3.2.0-beta.1은 **Beta/Prerelease**이며 완전히 안정적인 정식 버전은 아닙니다. 설치 전에 버전, 릴리스 노트, `SHA256.txt`의 체크섬을 확인하세요. Release 배지는 Prerelease도 포함합니다. GitHub 빌드 아티팩트에는 보관 기간이 있으므로 이 버전은 위의 릴리스 파일 링크에서 다운로드하세요.
 
 대상 환경은 **Windows 11 x64**, Windows PowerShell 5.1, WLAN 서비스, Windows Script Host입니다. 자체 포함 EXE는 .NET, Python, Node.js, WebView2의 별도 설치가 필요 없습니다. 다른 Windows 버전의 호환성을 검증했다고 주장하지 않습니다. 조직 정책은 WLAN 정보, 프록시 설정, 예약 작업을 제한할 수 있습니다. 현재 빌드는 서명되지 않았으므로 Windows 보안 보호를 켜 두세요.
 
@@ -120,7 +120,7 @@ Wi-Fi 연결 → 안정적인 SSID/인터페이스 정보 읽기 → 사용자 �
 - 현재 Windows 사용자의 **수동 프록시**를 관리하며 DNS, 라우팅, 방화벽 규칙은 변경하지 않습니다.
 - 로그와 진단에 네트워크 식별자가 포함될 수 있습니다. 공유 전에 확인하고 민감한 정보를 가리세요.
 
-과거 커밋과 이전 릴리스 자료에는 예전 네트워크 예제와 컴퓨터 경로가 들어 있습니다. Private 상태가 이런 기록을 없애지는 않습니다. 공개 전에 소유자가 [공개 저장소 감사](docs/PUBLIC_REPOSITORY_AUDIT.md)를 별도로 검토해야 합니다. 보안 문제는 [SECURITY.md](SECURITY.md)에 따라 신고하세요.
+보안 문제는 [SECURITY.md](SECURITY.md)에 따라 신고하세요.
 
 ## 자주 묻는 질문
 
@@ -154,7 +154,7 @@ WiFi Proxy Pilot이 작업을 편하게 해 준다면 프로젝트에 Star를 �
   </picture>
 </a>
 
-공식 실시간 SVG는 이 저장소의 실제 GitHub 데이터를 사용합니다. Private 상태에서는 외부 서비스가 모든 사용자에게 기록을 보여 줄 수 없습니다. 공개 후 다시 확인해야 합니다. Star나 성장을 꾸며 내지 않으며 빈 기록을 가짜 데이터로 채우지 않습니다. [공식 임베딩 안내](https://www.star-history.com/blog/how-to-use-github-star-history/)를 참고하세요.
+공식 실시간 SVG는 이 공개 저장소의 실제 GitHub 데이터를 사용합니다. 2026-10-14에 확인한 Star 수는 0개이므로 빈 기록은 예상된 상태입니다. 확인 당시 라이트·다크 테마 이미지 URL 모두 HTTP 200을 반환했습니다. Star나 성장을 꾸며 내지 않습니다. [공식 임베딩 안내](https://www.star-history.com/blog/how-to-use-github-star-history/)를 참고하세요.
 
 ## 기여 및 로드맵
 

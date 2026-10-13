@@ -6,7 +6,7 @@
   ![Windows 11](https://img.shields.io/badge/Windows-11-0078D4)
   ![.NET 8](https://img.shields.io/badge/.NET-8-512BD4)
   ![WPF](https://img.shields.io/badge/UI-WPF-6557E8)
-  [![Release](https://img.shields.io/github/v/release/jeffxuu/WiFiProxyPilot)](https://github.com/jeffxuu/WiFiProxyPilot/releases)
+  [![Release](https://img.shields.io/github/v/release/jeffxuu/WiFiProxyPilot?include_prereleases)](https://github.com/jeffxuu/WiFiProxyPilot/releases/tag/v3.2.0-beta.1)
   [![MIT License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
   [![GitHub Stars](https://img.shields.io/github/stars/jeffxuu/WiFiProxyPilot?style=flat)](https://github.com/jeffxuu/WiFiProxyPilot/stargazers)
 </div>
@@ -15,7 +15,7 @@
 
 **Wi-Fi 切换，代理随行。** 在普通 Wi-Fi 上使用网关提供的代理，在你指定的网络上直连。通过现代 WPF 桌面界面或系统托盘管理。
 
-> **v3.2.0-beta.1 正在开发。** 截图来自实际运行的 WPF 应用，网络数据为模拟。真实网络、登录／休眠、安装和卸载验收与隔离回归测试分别记录。当前软件界面使用简体中文；README 翻译不代表界面已实现相应本地化。仓库仍为 Private，等待所有者决定是否公开，因此外部徽章和 Star History 可能不可用。
+> **v3.2.0-beta.1 是 Beta／Prerelease。** 截图来自实际运行的 WPF 应用，网络数据为模拟。真实网络、登录／休眠、安装和卸载验收与隔离回归测试分别记录。当前软件界面使用简体中文；README 翻译不代表界面已实现相应本地化。仓库为 Public；下载入口见下方说明。
 
 ## 软件截图
 
@@ -49,9 +49,13 @@
 
 ## 下载与安装
 
-**[下载最新 Release — 旧版 v3.0.0](https://github.com/jeffxuu/WiFiProxyPilot/releases/latest)** · **[浏览 Releases](https://github.com/jeffxuu/WiFiProxyPilot/releases)** · **[v3.2 构建产物](https://github.com/jeffxuu/WiFiProxyPilot/actions/workflows/build.yml)**
+**[下载 v3.2.0-beta.1 — Beta／Prerelease](https://github.com/jeffxuu/WiFiProxyPilot/releases/tag/v3.2.0-beta.1)** · **[浏览 Releases](https://github.com/jeffxuu/WiFiProxyPilot/releases)** · **[Windows 构建结果](https://github.com/jeffxuu/WiFiProxyPilot/actions/workflows/build.yml)**
 
-已发布的 v3.0.0 使用较早的界面和行为，**不包含**上方展示的 v3.2 WPF 界面。v3.1.0 是 Draft Prerelease；目前没有已发布的 v3.2 Release。构建产物需要仓库访问权限并有过期时间，草稿不能作为公开下载。安装前请核对版本、发布说明和 SHA256。Release 徽章显示已发布版本，不代表开发版本。
+此发布包含上方展示的 v3.2 WPF 界面，标记为 Beta／Prerelease，尚未完成所有真实网络及安装生命周期验收。安装前请核对发布说明和 SHA256。Release 徽章包含预发布版本；Actions 构建产物有保留期限。
+
+- [下载 EXE](https://github.com/jeffxuu/WiFiProxyPilot/releases/download/v3.2.0-beta.1/WiFiProxySwitcher.exe)
+- [下载 ZIP](https://github.com/jeffxuu/WiFiProxyPilot/releases/download/v3.2.0-beta.1/WiFiProxySwitcher.zip)
+- [下载 SHA256 校验文件](https://github.com/jeffxuu/WiFiProxyPilot/releases/download/v3.2.0-beta.1/SHA256.txt)
 
 目标平台为 **Windows 11 x64**，需要 Windows PowerShell 5.1、WLAN 服务和 Windows Script Host。自包含 EXE 无需另外安装 .NET、Python、Node.js 或 WebView2。不声称已验证更广泛的 Windows 兼容性。组织策略可能限制 WLAN 信息、代理设置或计划任务。当前构建未签名，请保持 Windows 安全保护开启。
 
@@ -108,7 +112,7 @@ Get-FileHash .\WiFiProxySwitcher.exe -Algorithm SHA256
 
 最初的手动代理备份保存在安装目录下的 `state/proxy-before-install.json`。升级保留它及用户规则，不重新生成一份“原始”备份。配置修改保留上一份有效文件。请勿公开这些本地文件。
 
-已有安装可打开候选 EXE，进入**“设置 → 高级操作 → 修复安装／升级”**。不要先卸载，也不要用仓库默认值覆盖个人配置。详见[配置迁移](docs/CONFIG_MIGRATION.md)。
+已有安装可打开 v3.2 EXE，进入**“设置 → 高级操作 → 修复安装／升级”**。不要先卸载，也不要用仓库默认值覆盖个人配置。详见[配置迁移](docs/CONFIG_MIGRATION.md)。
 
 使用**“恢复安装前配置”**、**“设置 → 高级操作 → 卸载”**，或 Windows“已安装的应用”。恢复／卸载会比较当前设置与原始配置、工具最后写入的配置。外部后续修改会触发冲突，防止被覆盖。强制恢复必须明确选择；卸载时也可保留当前代理。清理仅针对自有任务／启动记录及核实归属的产品文件，保护无关或被用户修改的文件。直连模式保留最初备份。
 
@@ -120,7 +124,7 @@ Get-FileHash .\WiFiProxySwitcher.exe -Algorithm SHA256
 - 程序管理当前用户的 Windows **手动代理**，不修改 DNS、路由或防火墙规则。
 - 日志和诊断可能包含网络标识，分享前请检查并脱敏。
 
-历史提交和旧发布材料包含过去的网络示例与机器路径。保持 Private 不会移除它们。公开前需要所有者另行审阅[公开仓库审计](docs/PUBLIC_REPOSITORY_AUDIT.md)。安全问题的报告方式见 [SECURITY.md](SECURITY.md)。
+安全问题的报告方式见 [SECURITY.md](SECURITY.md)。
 
 ## 常见问题
 
@@ -154,7 +158,7 @@ Get-FileHash .\WiFiProxySwitcher.exe -Algorithm SHA256
   </picture>
 </a>
 
-官方实时 SVG 使用本仓库真实的 GitHub 数据。仓库为 Private 时，外部服务无法向所有人展示其历史。公开后仍需重新检查；不会伪造星标或增长，也不会用虚构数据替代空白历史。参考[官方嵌入说明](https://www.star-history.com/blog/how-to-use-github-star-history/)。
+官方实时 SVG 使用本仓库真实的 GitHub 数据。截至 2026-10-14，经核验的星标数为 0，因此空白图表属于预期结果。不会伪造星标或增长，也不会用虚构数据替代空白历史。参考[官方嵌入说明](https://www.star-history.com/blog/how-to-use-github-star-history/)。
 
 ## 贡献与路线图
 
