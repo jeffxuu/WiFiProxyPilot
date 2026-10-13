@@ -13,7 +13,7 @@ public sealed record Options(string Command, bool Quiet = false, bool Force = fa
     {
         if (args.Length == 0) return new("gui");
         var command = args[0].ToLowerInvariant();
-        if (!new[] { "/install", "/uninstall", "/restore", "/status", "/start", "/stop", "/check", "/pause", "/resume", "/direct", "/settings", "/tray", "/benchmark", "/preview", "/ui-review", "/self-test" }.Contains(command))
+        if (!new[] { "/install", "/uninstall", "/restore", "/status", "/start", "/stop", "/check", "/pause", "/resume", "/direct", "/settings", "/tray", "/benchmark", "/preview", "/ui-review", "/self-test", "/shutdown-ui" }.Contains(command))
             throw new ArgumentException("未知命令。支持 /install /uninstall /restore /status /start /stop /check /pause /resume /direct。");
         var o = new Options(command[1..]);
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

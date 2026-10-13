@@ -24,6 +24,7 @@ internal static class Program
             if (options.Command == "self-test") return SelfTest(options);
             if (options.Command == "ui-review") return DesktopVerification.RunHomeReview(options);
             SessionGuard.Validate();
+            if (options.Command == "shutdown-ui") { SingleInstance.RequestExitAndWait(); return 0; }
             if (options.Command is "gui" or "tray" or "benchmark" or "preview")
             {
                 using var instance = new SingleInstance();
@@ -33,7 +34,7 @@ internal static class Program
                 var desktop = new System.Windows.Application { ShutdownMode = System.Windows.ShutdownMode.OnExplicitShutdown };
                 SynchronizationContext.SetSynchronizationContext(new System.Windows.Threading.DispatcherSynchronizationContext(desktop.Dispatcher));
                 using var context = new PilotTrayHost(app, options.Command == "tray", instance.Activation, instance.ExitRequest);
-                if (options.Command == "benchmark") DesktopVerification.AttachBenchmark(context);
+                if (options.Command == "benchmark") { DesktopVerification.AttachBenchmark(context); _ = PrepareBenchmarkCache(app); }
                 desktop.Run(); return 0;
             }
             using var controller = new AppController();
@@ -45,20 +46,20 @@ internal static class Program
             if (options.Command == "uninstall" && options.WorkerPid == 0)
             {
                 controller.BeginUninstall(options);
-                Console.WriteLine(JsonSerializer.Serialize(new { Succeeded = false, Code = "UninstallStarted", Message = "卸载程序已启动；最终结果见 WiFiProxySwitcher-Control/uninstall-result.json。" }));
+                Console.WriteLine(JsonSerializer.Serialize(new { Succeeded = false, Code = "UninstallStarted", Message = Localization.Text("UninstallStartedMessage") }));
                 return 10; // Handoff accepted, not a claim that restoration/deletion already succeeded.
             }
             if (options.WorkerPid != 0) { AppController.WaitForParent(options); SingleInstance.RequestExitAndWait(); }
             var r = controller.Execute(options).GetAwaiter().GetResult();
             if (r.Code == "RestoreConflict" && !options.Quiet)
             {
-                var answer = MessageBox.Show("检测到后续手动代理修改。\n\n“是”：恢复安装前配置。\n“否”：保留当前配置（卸载时继续卸载）。\n“取消”：保留安装与备份。", "代理配置冲突", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Warning);
+                var answer = MessageBox.Show(Localization.Text("ProxyConflictBody"), Localization.Text("ProxyConflictTitle"), MessageBoxButtons.YesNoCancel, MessageBoxIcon.Warning);
                 if (answer == DialogResult.Yes) r = controller.Execute(options with { Force = true }).GetAwaiter().GetResult();
                 else if (answer == DialogResult.No && options.Command == "uninstall") r = controller.Execute(options with { Keep = true }).GetAwaiter().GetResult();
             }
             Console.WriteLine(JsonSerializer.Serialize(r));
             if (options.WorkerPid != 0) File.WriteAllText(Path.Combine(AppController.ControlDir, "uninstall-result.json"), JsonSerializer.Serialize(r));
-            if (!options.Quiet) MessageBox.Show(r.Succeeded ? "操作完成。" : r.Message, "WiFi Proxy Pilot", MessageBoxButtons.OK, r.Succeeded ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
+            if (!options.Quiet) MessageBox.Show(r.Succeeded ? Localization.Text("OperationCompleted") : Localization.Error(new UiOperationException(r.Code)), "WiFi Proxy Pilot", MessageBoxButtons.OK, r.Succeeded ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
             return r.Succeeded ? 0 : r.Code == "RestoreConflict" ? 20 : 1;
         }
         catch (Exception ex)
@@ -73,12 +74,17 @@ internal static class Program
             }
             catch (Exception logError) { Console.Error.WriteLine("日志写入失败: " + logError.Message); }
             Console.Error.WriteLine(ex.Message);
-            if (!quiet) MessageBox.Show(ex.Message, "WiFi Proxy Pilot", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            if (!quiet) MessageBox.Show(Localization.Error(ex), "WiFi Proxy Pilot", MessageBoxButtons.OK, MessageBoxIcon.Error);
             return 1;
         }
     }
     private static int SelfTest(Options options)
     {
         return DesktopVerification.Run(options);
+    }
+    private static async Task PrepareBenchmarkCache(AppController controller)
+    {
+        try { await controller.WarmCache(); }
+        catch (Exception error) { StartupMetrics.Value("InitializationError", error.ToString()); StartupMetrics.Mark("PayloadFailed"); }
     }
 }

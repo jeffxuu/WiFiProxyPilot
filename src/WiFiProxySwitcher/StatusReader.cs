@@ -8,7 +8,8 @@ namespace WiFiProxySwitcher;
 internal sealed record StatusView(bool Installed, string Ssid, string Interface, string Gateway, string Proxy, string Watcher, string Updated, string Logs,
     bool Running = false, bool Paused = false, bool Healthy = false, string Rule = "—", string Health = "尚未检测", string Revision = "", string Outcome = "", string Reason = "", bool ProxyEnabled = false, bool Connected = false,
     ApplicationState State = ApplicationState.NotInstalled, string EngineVersion = "未知", bool Fresh = false, string ManualServer = "", string ConfigRevision = "", string AppliedRevision = "", bool SetupComplete = false,
-    ManagementIntent Intent = ManagementIntent.Paused, NetworkStatus? Network = null, ProxyDiagnosticStatus? Diagnostic = null, int EngineSchemaVersion = 0, string CheckRequestId = "");
+    ManagementIntent Intent = ManagementIntent.Paused, NetworkStatus? Network = null, ProxyDiagnosticStatus? Diagnostic = null, int EngineSchemaVersion = 0, string CheckRequestId = "",
+    bool ProxyReadable = true, string RuleCode = "Unknown", string ReasonCode = "Unknown", bool ConfigApplied = false, DateTimeOffset? ObservedAt = null);
 
 internal static class StatusReader
 {
@@ -33,8 +34,8 @@ internal static class StatusReader
             string reason = "暂时无法读取：" + e.Message;
             if (previous != null)
                 return previous with { Ssid = "暂时无法读取", Gateway = "暂时无法读取", Proxy = "暂时无法读取", Watcher = state == ApplicationState.UpgradeRequired ? "需要升级应用和后台组件" : "暂时无法读取", State = state, Fresh = false, Connected = false, Healthy = false,
-                    Reason = reason + "；上次成功读取：" + previous.Updated, Health = "诊断未知 · 暂时无法读取", Rule = "暂时无法读取当前规则", ManualServer = "", AppliedRevision = "", Network = new(NetworkConnectionState.Unknown, ObservedAt: previous.Network?.ObservedAt, Reason: reason), Diagnostic = new(ProxyDiagnosticState.Unknown, Reason: reason) };
-            return new(true, "暂时无法读取", "—", "暂时无法读取", "暂时无法读取", "暂时无法读取", "尚无成功检测", "", State: state, Reason: reason);
+                    Reason = reason + "；上次成功读取：" + previous.Updated, Health = "诊断未知 · 暂时无法读取", Rule = "暂时无法读取当前规则", ManualServer = "", AppliedRevision = "", ProxyReadable = false, RuleCode = "Unknown", ReasonCode = "ReadFailed", ConfigApplied = false, Network = new(NetworkConnectionState.Unknown, ObservedAt: previous.Network?.ObservedAt, Reason: reason), Diagnostic = new(ProxyDiagnosticState.Unknown, Reason: reason) };
+            return new(true, "暂时无法读取", "—", "暂时无法读取", "暂时无法读取", "暂时无法读取", "尚无成功检测", "", State: state, Reason: reason, ProxyReadable: false, ReasonCode: "ReadFailed");
         }
     }
 
@@ -43,7 +44,7 @@ internal static class StatusReader
         var root = AppController.InstalledRoot();
         if (root == null) return new(false, "尚未开始", "—", "—", "等待配置", "未配置", "—", "", State: ApplicationState.NotInstalled, Reason: "根据 Wi-Fi 自动切换 Windows 手动代理；完成首次设置并确认后才会改变代理。", Network: new(NetworkConnectionState.Unknown), Diagnostic: new(ProxyDiagnosticState.Unknown));
         var configuration = ConfigurationStore.Read(root);
-        string ssid = "暂不可确认", iface = "—", gateway = "—", updated = "尚无成功检测", outcome = "", reason = "", revision = "", appliedRevision = "", engineVersion = "未知", networkKind = "Unknown", checkRequestId = "", ruleReason = "", observedServer = "";
+        string ssid = "暂不可确认", iface = "—", gateway = "—", updated = "尚无成功检测", outcome = "", reason = "", revision = "", appliedRevision = "", engineVersion = "未知", networkKind = "Unknown", checkRequestId = "", ruleReason = "", observedServer = "", ruleCode = "Unknown", reasonCode = "Unknown";
         int engineSchema = 0;
         bool fresh = false, stable = false, heartbeatPresent = false, probeFresh = false;
         DateTimeOffset? observedAt = null, diagnosticAt = null;
@@ -58,6 +59,7 @@ internal static class StatusReader
             string Text(string k) => h.TryGetProperty(k, out var v) ? v.ToString() : "";
             heartbeatPresent = true;
             outcome = Text("Outcome"); reason = Text("Reason"); ruleReason = Text("RuleReason"); revision = Text("ConfigRevision"); appliedRevision = Text("AppliedRevision");
+            ruleCode = Text("RuleCode"); reasonCode = Text("ReasonCode");
             observedServer = Text("ActualServer");
             engineVersion = Text("EngineVersion"); int.TryParse(Text("SchemaVersion"), out engineSchema);
             checkRequestId = Text("CheckRequestId"); networkKind = Text("NetworkKind");
@@ -85,7 +87,7 @@ internal static class StatusReader
         bool compatible = !heartbeatPresent || engineSchema >= ConfigurationStore.CurrentSchemaVersion && Version.TryParse(engineVersion.Split('-')[0], out var engine) && engine >= new Version(3, 2);
         if (!heartbeatPresent || engineVersion.Length == 0) engineVersion = "未知";
         bool paused = configuration.Intent != ManagementIntent.Monitoring;
-        var networkState = GetNetworkState(networkKind, ssid, gateway, ruleReason.Length > 0 ? ruleReason : reason);
+        var networkState = GetNetworkState(networkKind, ssid, gateway, ruleReason.Length > 0 ? ruleReason : reason, reasonCode);
         if (!fresh)
         {
             networkState = NetworkConnectionState.Unknown;
@@ -112,13 +114,14 @@ internal static class StatusReader
             proxy = enabled ? "手动代理已开启 · " + (server.Length > 0 ? server : "地址缺失") : "手动代理已关闭";
             if (bypass.Split(';').Any(p => p.Trim().Equals("<local>", StringComparison.OrdinalIgnoreCase))) proxy += " · 绕过本地地址";
             var actual = WiFiProxy.Native.ReadProxy();
-            if (actual.Enable != enabled || enabled && actual.Server != server) { reason = "注册表与 WinINet 状态不一致；" + reason; outcome = "Retry"; }
+            if (actual.Enable != enabled || enabled && actual.Server != server) { reason = "注册表与 WinINet 状态不一致；" + reason; outcome = "Retry"; reasonCode = "ProxyReadbackMismatch"; }
             if ((actual.Flags & 12) != 0 || actual.Pac.Length > 0) reason += "；已保留 PAC/自动检测，应用实际选路可能由其决定";
             policyManaged = IsPolicyManaged();
         }
         if (fresh && stable && outcome is "Enable" or "Disable" && (enabled != (outcome == "Enable") || enabled && observedServer.Length > 0 && !server.Equals(observedServer, StringComparison.OrdinalIgnoreCase)))
         {
             reason = "手动代理已被外部程序修改，等待重新评估；" + reason; outcome = "Retry";
+            reasonCode = "ExternallyChanged";
             diagnosticState = ProxyDiagnosticState.Unknown; diagnosticReason = "代理地址已变化，原诊断不代表当前代理"; probeFresh = false;
         }
         if (DateTime.UtcNow - metadataTime > TimeSpan.FromMinutes(1) && AppController.TestRoot == null)
@@ -149,16 +152,27 @@ internal static class StatusReader
             _ => stable ? "自动切换运行中" : "正在确认当前网络"
         };
         bool configApplied = ConfigurationApplication.IsApplied(configuration.Revision, new(revision, appliedRevision, engineSchema, stable, fresh));
+        if (configuration.Intent == ManagementIntent.Direct) ruleCode = "Direct";
+        else if (paused) ruleCode = "Paused";
+        else if (!fresh) { ruleCode = "Stale"; reasonCode = "Stale"; }
+        else if (!configApplied) ruleCode = "Pending";
+        else if (networkState == NetworkConnectionState.Disconnected) ruleCode = "Disconnected";
+        else if (connected && configuration.Whitelist.Contains(ssid, StringComparer.OrdinalIgnoreCase)) ruleCode = "Whitelist";
+        else if (string.IsNullOrEmpty(ruleCode) || ruleCode == "Unknown") ruleCode = connected ? "Gateway" : "Unknown";
         string rule = configuration.Intent == ManagementIntent.Direct ? "直连 · 自动管理已暂停" : paused ? "已暂停 · 不写入代理" : !fresh ? "等待近期检测" : !configApplied ? "已保存，等待后台稳定评估" : networkState == NetworkConnectionState.Disconnected ? "已确认 Wi-Fi 断开" : connected && configuration.Whitelist.Contains(ssid, StringComparer.OrdinalIgnoreCase) ? "命中免代理 Wi-Fi 规则" : outcome == "Disable" && (ruleReason + reason).Contains("Safe", StringComparison.Ordinal) ? "Safe 失败回退直连" : connected ? "当前 Wi-Fi IPv4 网关" : "等待网络稳定确认";
         var network = new NetworkStatus(networkState, fresh && connected ? ssid : "", iface, fresh && connected ? gateway : "", observedAt, fresh, ruleReason.Length > 0 ? ruleReason : reason);
         var diagnostic = new ProxyDiagnosticStatus(diagnosticState, diagnosticAt, probeFresh, diagnosticReason);
         return new(true, ssid, iface, gateway, proxy, watcher, updated, includeLogs ? Logs(root, errorsOnly, raw) : "", running, paused, healthy, rule, diagnosticReason, revision, outcome, reason, enabled, connected,
-            state, engineVersion, fresh, server, configuration.Revision, appliedRevision, configuration.SetupComplete, configuration.Intent, network, diagnostic, engineSchema, checkRequestId);
+            state, engineVersion, fresh, server, configuration.Revision, appliedRevision, configuration.SetupComplete, configuration.Intent, network, diagnostic, engineSchema, checkRequestId,
+            true, ruleCode, reasonCode, configApplied, observedAt);
     }
 
-    private static NetworkConnectionState GetNetworkState(string kind, string ssid, string gateway, string reason)
+    private static NetworkConnectionState GetNetworkState(string kind, string ssid, string gateway, string reason, string reasonCode = "")
     {
         if (kind == "Disconnected") return NetworkConnectionState.Disconnected;
+        if (reasonCode == "Ambiguous") return NetworkConnectionState.Ambiguous;
+        if (reasonCode == "GatewayUnavailable") return NetworkConnectionState.GatewayUnavailable;
+        if (reasonCode == "NetworkUnknown") return NetworkConnectionState.Unknown;
         if (reason.Contains("权限", StringComparison.Ordinal) || reason.Contains("ACCESS_DENIED", StringComparison.OrdinalIgnoreCase) || reason.Contains("位置", StringComparison.Ordinal)) return NetworkConnectionState.AccessDenied;
         if (reason.Contains("服务", StringComparison.Ordinal) || reason.Contains("WLAN", StringComparison.OrdinalIgnoreCase) && reason.Contains("异常", StringComparison.Ordinal)) return NetworkConnectionState.WlanUnavailable;
         if (reason.Contains("无线网卡", StringComparison.Ordinal) && reason.Contains("无", StringComparison.Ordinal)) return NetworkConnectionState.NoWirelessAdapter;

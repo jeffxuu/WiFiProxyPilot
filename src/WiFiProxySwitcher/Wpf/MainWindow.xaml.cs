@@ -24,6 +24,7 @@ public partial class PilotWindow : Window
         Application.Current.Resources.MergedDictionaries.Add(design);
         StartupMetrics.Value("ThemeLoadMilliseconds", load.Elapsed.TotalMilliseconds); load.Restart();
         ViewModel = model; InitializeComponent(); DataContext = model;
+        Icon = AppIcons.CreateWindowIcon();
         StartupMetrics.Value("WindowXamlMilliseconds", load.Elapsed.TotalMilliseconds); load.Restart();
         model.PropertyChanged += Changed; model.ThemeChanged += ApplyTheme;
         SourceInitialized += (_, _) => SetNativeAppearance();
@@ -56,27 +57,14 @@ public partial class PilotWindow : Window
     private static bool IsSystemDark() { using var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"); return key?.GetValue("AppsUseLightTheme") is int value && value == 0; }
     private void PreferenceChanged(object sender, UserPreferenceChangedEventArgs e) { Dispatcher.BeginInvoke(() => { if (!exiting) ApplyTheme(ViewModel.Settings.Theme); }); }
     private void ThemeClick(object sender, RoutedEventArgs e) { ViewModel.Settings.Theme = dark ? "Light" : "Dark"; ApplyTheme(ViewModel.Settings.Theme); }
-    private void CloseClick(object sender, RoutedEventArgs e) => Close();
-    private void MinimizeClick(object sender, RoutedEventArgs e) => SystemCommands.MinimizeWindow(this);
-    private void MaximizeClick(object sender, RoutedEventArgs e) => ToggleMaximize();
-    private void ToggleMaximize() { if (WindowState == WindowState.Maximized) SystemCommands.RestoreWindow(this); else SystemCommands.MaximizeWindow(this); }
-    internal IntPtr WindowMessages(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
-    {
-        // Expose the real maximize hit target to Windows 11 Snap layouts.
-        if (message == 0x84 && MaxButton.IsVisible)
-        {
-            long coordinates = lParam.ToInt64(); var point = PointFromScreen(new Point((short)(coordinates & 0xffff), (short)((coordinates >> 16) & 0xffff)));
-            Point origin = MaxButton.TranslatePoint(new Point(), this);
-            if (new Rect(origin, MaxButton.RenderSize).Contains(point)) { handled = true; return new IntPtr(9); }
-        }
-        if (message == 0xA2 && wParam.ToInt32() == 9) { ToggleMaximize(); handled = true; }
-        return IntPtr.Zero;
-    }
     private void SetNativeAppearance()
     {
         var hwnd = new WindowInteropHelper(this).Handle; if (hwnd == IntPtr.Zero) return;
-        int corners = 2, mode = dark ? 1 : 0;
-        DwmSetWindowAttribute(hwnd, 33, ref corners, sizeof(int)); DwmSetWindowAttribute(hwnd, 20, ref mode, sizeof(int));
+        // Keep native frame metrics and default caption colors. The system owns sizing,
+        // maximized bounds, resize borders, shadow and Snap hit testing at every DPI.
+        int corners = 0, mode = dark && !SystemParameters.HighContrast ? 1 : 0;
+        _ = DwmSetWindowAttribute(hwnd, 33, ref corners, sizeof(int));
+        _ = DwmSetWindowAttribute(hwnd, 20, ref mode, sizeof(int));
     }
     internal void ExitWindow() { exiting = true; ViewModel.PropertyChanged -= Changed; ViewModel.ThemeChanged -= ApplyTheme; SystemEvents.UserPreferenceChanged -= PreferenceChanged; Close(); }
     [DllImport("dwmapi.dll")] private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);

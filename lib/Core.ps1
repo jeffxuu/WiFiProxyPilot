@@ -64,32 +64,33 @@ function Test-GatewayIPv4([string]$Address) {
 }
 
 function Get-Target($Snapshot, $Config, [string]$Health = 'Unknown') {
-    if ($Snapshot.Kind -eq 'Disconnected') { return [pscustomobject]@{ Action='Disable'; Server=''; SSID=''; Guid=''; Gateway=''; Reason='已确认 Wi-Fi 断开' } }
-    if ($Snapshot.Kind -ne 'Connected') { return [pscustomobject]@{ Action='Keep'; Server=''; SSID=''; Guid=''; Gateway=''; Reason=$Snapshot.Reason } }
+    if ($Snapshot.Kind -eq 'Disconnected') { return [pscustomobject]@{ Action='Disable'; Server=''; SSID=''; Guid=''; Gateway=''; Reason='已确认 Wi-Fi 断开'; ReasonCode='Disconnected' } }
+    if ($Snapshot.Kind -ne 'Connected') { return [pscustomobject]@{ Action='Keep'; Server=''; SSID=''; Guid=''; Gateway=''; Reason=$Snapshot.Reason; ReasonCode='NetworkUnknown' } }
     $items = @($Snapshot.Candidates)
     if ($Config.PreferredInterfaceGuid) {
         $items = @($items | Where-Object { [Guid]$_.Guid -eq [Guid]$Config.PreferredInterfaceGuid })
-        if ($items.Count -ne 1) { return [pscustomobject]@{ Action='Keep'; Server=''; SSID=''; Guid=''; Gateway=''; Reason='首选 Wi-Fi 接口尚未连接' } }
+        if ($items.Count -ne 1) { return [pscustomobject]@{ Action='Keep'; Server=''; SSID=''; Guid=''; Gateway=''; Reason='首选 Wi-Fi 接口尚未连接'; ReasonCode='PreferredUnavailable' } }
     } elseif ($items.Count -gt 1) {
-        if (@($items | Where-Object { -not $_.Ready }).Count) { return [pscustomobject]@{ Action='Keep'; Server=''; SSID=''; Guid=''; Gateway=''; Reason='多个 Wi-Fi 接口尚未形成可靠路由' } }
+        if (@($items | Where-Object { -not $_.Ready }).Count) { return [pscustomobject]@{ Action='Keep'; Server=''; SSID=''; Guid=''; Gateway=''; Reason='多个 Wi-Fi 接口尚未形成可靠路由'; ReasonCode='Ambiguous' } }
         $items = @($items | Sort-Object Metric)
-        if ($items[0].Metric -eq $items[1].Metric) { return [pscustomobject]@{ Action='Keep'; Server=''; SSID=''; Guid=''; Gateway=''; Reason='多个 Wi-Fi 接口路由成本相同，拒绝猜测' } }
+        if ($items[0].Metric -eq $items[1].Metric) { return [pscustomobject]@{ Action='Keep'; Server=''; SSID=''; Guid=''; Gateway=''; Reason='多个 Wi-Fi 接口路由成本相同，拒绝猜测'; ReasonCode='Ambiguous' } }
         $items = @($items[0])
     }
-    if ($items.Count -ne 1 -or [string]::IsNullOrEmpty($items[0].SSID)) { return [pscustomobject]@{ Action='Keep'; Server=''; SSID=''; Guid=''; Gateway=''; Reason='无法可靠识别 SSID' } }
+    if ($items.Count -ne 1 -or [string]::IsNullOrEmpty($items[0].SSID)) { return [pscustomobject]@{ Action='Keep'; Server=''; SSID=''; Guid=''; Gateway=''; Reason='无法可靠识别 SSID'; ReasonCode='NetworkUnknown' } }
     $n = $items[0]
-    $t = [pscustomobject]@{ Action='Keep'; Server=''; SSID=$n.SSID; Guid=$n.Guid; Gateway=$n.Gateway; Reason='' }
+    $t = [pscustomobject]@{ Action='Keep'; Server=''; SSID=$n.SSID; Guid=$n.Guid; Gateway=$n.Gateway; Reason=''; ReasonCode='Unknown' }
     $matchable=$true; if ($null -ne $n.PSObject.Properties['Matchable']) { $matchable=$n.Matchable }
     foreach ($ssid in @($Config.Whitelist)) {
-        if ($matchable -and [string]::Equals($ssid,$n.SSID,[StringComparison]::OrdinalIgnoreCase)) { $t.Action='Disable'; $t.Reason='精确匹配免代理 Wi-Fi 规则'; return $t }
+        if ($matchable -and [string]::Equals($ssid,$n.SSID,[StringComparison]::OrdinalIgnoreCase)) { $t.Action='Disable'; $t.Reason='精确匹配免代理 Wi-Fi 规则'; $t.ReasonCode='Whitelist'; return $t }
     }
     if (-not $n.Ready -or -not (Test-GatewayIPv4 $n.Gateway)) {
         $t.Reason='IPv4 网关尚未就绪或路由歧义'
+        $t.ReasonCode='GatewayUnavailable'
         if ($null -ne $n.PSObject.Properties['RouteError'] -and $n.RouteError) { $t.Reason += ': '+$n.RouteError }
         return $t
     }
-    if ($Config.Mode -eq 'Safe' -and $Health -eq 'Unavailable') { $t.Action='Disable'; $t.Reason='Safe: 代理连续检测失败，恢复直连并继续检测'; return $t }
-    $t.Action='Enable'; $t.Server=('{0}:{1}' -f $n.Gateway,$Config.Port); $t.Reason='当前 Wi-Fi 未命中免代理规则，使用其 IPv4 网关'; return $t
+    if ($Config.Mode -eq 'Safe' -and $Health -eq 'Unavailable') { $t.Action='Disable'; $t.Reason='Safe: 代理连续检测失败，恢复直连并继续检测'; $t.ReasonCode='SafeFallback'; return $t }
+    $t.Action='Enable'; $t.Server=('{0}:{1}' -f $n.Gateway,$Config.Port); $t.Reason='当前 Wi-Fi 未命中免代理规则，使用其 IPv4 网关'; $t.ReasonCode='Gateway'; return $t
 }
 
 function Add-LocalBypass([string]$Value) {

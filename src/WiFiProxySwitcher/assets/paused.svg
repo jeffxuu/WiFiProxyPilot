@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <title>WiFi Proxy Pilot</title>
+  <desc>Original Wi-Fi signal and routed switch path, shared by app and tray assets.</desc>
+  <rect x="3" y="3" width="58" height="58" rx="15" fill="#16365F" stroke="#ADC8EA" stroke-width="1.5"/>
+  <path d="M14 21 C24 12 39 12 49 21 M20 28 C27 22 36 22 43 28" fill="none" stroke="#F4F8FF" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="31.5" cy="34.5" r="3" fill="#F4F8FF"/>
+  <path d="M18 46 L37 46 C42 46 45 43 45 38 L45 33 M40 38 L45 33 L50 38" fill="none" stroke="#75BCFF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="18" cy="46" r="3" fill="#75BCFF"/>
+<circle cx="50" cy="50" r="10" fill="#66758B" stroke="#F4F8FF" stroke-width="2"/><path d="M47 46 L47 54 M53 46 L53 54" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round"/></svg>

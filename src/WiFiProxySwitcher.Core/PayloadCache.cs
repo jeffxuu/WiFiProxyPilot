@@ -13,6 +13,15 @@ public sealed class PayloadCache
     public double VerifyMilliseconds { get; private set; }
     public double ExtractMilliseconds { get; private set; }
     private readonly Dictionary<string, string> hashes;
+    // Installed distributions already contain a complete engine. Verify the same embedded manifest
+    // in place instead of unpacking a second copy; this never trusts timestamps or installer claims.
+    public PayloadCache(string installedRoot, Stream manifest)
+    {
+        hashes = JsonSerializer.Deserialize<Dictionary<string, string>>(manifest) ?? throw new InvalidDataException("Empty package manifest.");
+        if (hashes.Count is 0 or > 256) throw new InvalidDataException("Invalid package manifest size.");
+        Root = Path.GetFullPath(installedRoot); SafeFiles.PlainPath(Root);
+        var clock = Stopwatch.StartNew(); Verify(); VerifyMilliseconds = clock.Elapsed.TotalMilliseconds; Hit = true;
+    }
     public PayloadCache(Stream zip, Stream manifest, string parent, string version)
     {
         using var bytes = new MemoryStream(); manifest.CopyTo(bytes);

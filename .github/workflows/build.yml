@@ -1,7 +1,7 @@
 name: Windows build and core regression
 on:
   push:
-    branches: [main, feature/v3.2-product-experience]
+    branches: [main, feature/v3.2-product-experience, 'codex/**']
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -32,6 +32,11 @@ jobs:
         run: |
           powershell.exe -NoProfile -File tests/UpgradeTransaction.Tests.ps1 -ResultPath release/generated/upgrade-results-windows.json
           if ($LASTEXITCODE) { throw 'Upgrade regression failed' }
+      - name: Installer ownership, retention and conflict regression
+        shell: powershell
+        run: |
+          powershell.exe -NoProfile -File tests/Installer.Tests.ps1 -ResultPath release/generated/installer-results-windows.json
+          if ($LASTEXITCODE) { throw 'Installer regression failed' }
       - name: Build self-contained EXE and launcher regression
         shell: powershell
         run: ./release/Build.ps1
@@ -40,12 +45,21 @@ jobs:
         run: |
           dotnet run --project tests/Status.Tests/Status.Tests.csproj --configuration Release -- release/generated/status-results-windows.json
           if ($LASTEXITCODE) { throw 'Status regression failed' }
+      - name: Actual Setup lifecycle and WinINet acceptance on disposable Windows
+        shell: powershell
+        run: |
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests/Installed.Acceptance.ps1 -Setup release/dist/WiFiProxyPilot-Setup-x64.exe -Dotnet dotnet -OutputDirectory release/generated/installed-acceptance
+          if ($LASTEXITCODE) { throw 'Installed user-path acceptance failed' }
       - name: Upload build and verification evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: WiFiProxyPilot-v3.2.0-beta.1-${{ github.sha }}
+          name: WiFiProxyPilot-v3.3.0-beta.1-${{ github.sha }}
           path: |
             release/dist/*
             release/generated/*results*.json
+            release/generated/*acceptance*.json
+            release/generated/build-record.json
+            release/generated/inno-7.1.0/dependency.json
+            release/generated/installed-acceptance/**
           retention-days: 30

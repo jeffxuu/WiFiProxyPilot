@@ -101,6 +101,40 @@ function Apply-LoginSettings([string]$Root,$Manifest) {
     if ($enabled) { Enable-ScheduledTask -TaskName $Manifest.TaskName -TaskPath '\' -ErrorAction Stop | Out-Null }
     else { Disable-ScheduledTask -TaskName $Manifest.TaskName -TaskPath '\' -ErrorAction Stop | Out-Null }
     $tray=$true; if ($null -ne $c.PSObject.Properties['TrayAutoStart']) { $tray=$c.TrayAutoStart }
-    $desktop=Read-DesktopInstall $Root
-    if ($null -ne $desktop) { Set-TrayLoginEntry $Root $desktop $tray }
+    $installer=Read-InstallerDesktop
+    if ($null -ne $installer) { Set-InstallerTrayLogin $installer $tray }
+    else { $desktop=Read-DesktopInstall $Root; if ($null -ne $desktop) { Set-TrayLoginEntry $Root $desktop $tray } }
+}
+
+# Inno Setup is the sole owner of program files, shortcuts and Apps registration.
+# Engine data/backup/task ownership continues using the original v1 installation root.
+function Read-InstallerDesktop {
+    $key=[Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Software\WiFiProxySwitcher')
+    try {
+        if ($null -eq $key -or $key.GetValue('DesktopOwner','') -cne 'Inno') { return $null }
+        $directory=[string]$key.GetValue('DesktopAppDir','')
+    } finally { if ($null -ne $key) { $key.Dispose() } }
+    Assert-InstallerDesktopDirectory $directory
+}
+function Assert-InstallerDesktopDirectory([string]$Directory) {
+    if (-not [IO.Path]::IsPathRooted($Directory) -or $Directory.StartsWith('\\')) { throw 'Installer app directory is invalid' }
+    $directory=[IO.Path]::GetFullPath($Directory).TrimEnd('\')
+    Assert-PlainPath $directory
+    $path=Join-Path $directory 'installer-owned.json'; Assert-PlainPath $path
+    $owner=Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json
+    if ($owner.Product -cne 'WiFiProxyPilot-Inno-v1' -or $owner.OwnerSid -cne (Get-UserSid) -or $owner.AppId -cne '{15F7908C-5C54-4D45-9343-1973BFEA3B47}' -or -not [string]::Equals($owner.AppDir,$directory,[StringComparison]::OrdinalIgnoreCase)) { throw 'Installer ownership record does not match this user/directory' }
+    $exe=Join-Path $directory 'WiFiProxyPilot.exe'; Assert-PlainPath $exe
+    if (-not (Test-Path -LiteralPath $exe -PathType Leaf)) { throw 'Installed application is missing; repair Setup before enabling tray startup' }
+    return $owner
+}
+function Set-InstallerTrayLogin($Owner,[bool]$Enabled) {
+    $checked=Assert-InstallerDesktopDirectory $Owner.AppDir
+    $key=Open-TrayLoginRegistry
+    try {
+        $name='WiFiProxySwitcher.Tray'; $expected='"'+(Join-Path $checked.AppDir 'WiFiProxyPilot.exe')+'" /tray'
+        $value=[string]$key.GetValue($name,'')
+        if ($value -and $value -cne $expected) { throw 'Tray startup entry has another owner; refusing to overwrite/remove it' }
+        if ($Enabled) { $key.SetValue($name,$expected,[Microsoft.Win32.RegistryValueKind]::String) }
+        else { $key.DeleteValue($name,$false) }
+    } finally { $key.Dispose() }
 }

@@ -1,4 +1,4 @@
-name: Publish verified v3.2 prerelease
+name: Publish verified v3.3 prerelease
 on:
   workflow_dispatch:
     inputs:
@@ -14,7 +14,7 @@ permissions:
   contents: write
   actions: read
 concurrency:
-  group: pilot-v32-release
+  group: pilot-v33-release
   cancel-in-progress: false
 jobs:
   publish:
@@ -35,7 +35,7 @@ jobs:
           ref: ${{ inputs.source_sha }}
       - uses: actions/download-artifact@v4
         with:
-          name: WiFiProxyPilot-v3.2.0-beta.1-${{ inputs.source_sha }}
+          name: WiFiProxyPilot-v3.3.0-beta.1-${{ inputs.source_sha }}
           run-id: ${{ inputs.build_run_id }}
           github-token: ${{ github.token }}
           path: release-download
@@ -46,27 +46,27 @@ jobs:
           $hashFile=Join-Path $dist 'SHA256.txt'
           $expected=@{}
           foreach($line in Get-Content -LiteralPath $hashFile) {
-            if ($line -notmatch '^([0-9a-f]{64})\s+(WiFiProxySwitcher\.(exe|zip))$') { throw 'Invalid checksum record' }
+            if ($line -notmatch '^([0-9a-f]{64})\s+(WiFiProxyPilot-(Setup-x64\.exe|Portable-x64\.zip))$') { throw 'Invalid checksum record' }
             if ($expected.ContainsKey($Matches[2])) { throw 'Duplicate checksum record' }
             $expected[$Matches[2]]=$Matches[1]
           }
           if ($expected.Count -ne 2) { throw 'Missing checksums' }
-          foreach($name in @('WiFiProxySwitcher.exe','WiFiProxySwitcher.zip')) {
+          foreach($name in @('WiFiProxyPilot-Setup-x64.exe','WiFiProxyPilot-Portable-x64.zip')) {
             $actual=(Get-FileHash -LiteralPath (Join-Path $dist $name) -Algorithm SHA256).Hash.ToLowerInvariant()
             if ($actual -ne $expected[$name]) { throw "Package hash mismatch: $name" }
           }
-          $version=[Diagnostics.FileVersionInfo]::GetVersionInfo((Join-Path $dist 'WiFiProxySwitcher.exe')).ProductVersion
-          if ($version -ne ('3.2.0-beta.1+'+$env:SOURCE_SHA)) { throw 'Executable version/source mismatch' }
-          $tag='v3.2.0-beta.1'
+          $acceptance=Get-Content -Raw (Join-Path (Get-Location) 'release-download/generated/installed-acceptance/installed-results.json') | ConvertFrom-Json
+          if ($null -eq $acceptance.Failed -or $acceptance.Failed -ne 0 -or $acceptance.Boundary -ne 'Disposable GitHub-hosted Windows, actual Setup/WinINet/tasks/WPF' -or $acceptance.Session -eq 0 -or @($acceptance.Results | Where-Object { -not $_.Passed }).Count -gt 0 -or $acceptance.SetupSha256.ToLowerInvariant() -ne $expected['WiFiProxyPilot-Setup-x64.exe']) { throw 'Actual installed lifecycle acceptance did not pass for this package' }
+          $tag='v3.3.0-beta.1'
           $release=gh release view $tag --repo $env:GITHUB_REPOSITORY --json isDraft 2>$null
           if ($LASTEXITCODE -eq 0) {
             if (-not ($release | ConvertFrom-Json).isDraft) { throw 'Release already published; refusing replacement' }
-            gh release edit $tag --repo $env:GITHUB_REPOSITORY --target $env:SOURCE_SHA --notes-file release/NOTES-v3.2.0-beta.1.md --draft --prerelease
+            gh release edit $tag --repo $env:GITHUB_REPOSITORY --target $env:SOURCE_SHA --notes-file release/NOTES-v3.3.0-beta.1.md --draft --prerelease
           } else {
-            gh release create $tag --repo $env:GITHUB_REPOSITORY --target $env:SOURCE_SHA --title 'WiFi Proxy Pilot v3.2.0-beta.1' --notes-file release/NOTES-v3.2.0-beta.1.md --draft --prerelease
+            gh release create $tag --repo $env:GITHUB_REPOSITORY --target $env:SOURCE_SHA --title 'WiFi Proxy Pilot v3.3.0-beta.1' --notes-file release/NOTES-v3.3.0-beta.1.md --draft --prerelease
           }
           if ($LASTEXITCODE) { throw 'Draft preparation failed' }
-          gh release upload $tag (Join-Path $dist 'WiFiProxySwitcher.exe') (Join-Path $dist 'WiFiProxySwitcher.zip') $hashFile --repo $env:GITHUB_REPOSITORY --clobber
+          gh release upload $tag (Join-Path $dist 'WiFiProxyPilot-Setup-x64.exe') (Join-Path $dist 'WiFiProxyPilot-Portable-x64.zip') $hashFile --repo $env:GITHUB_REPOSITORY --clobber
           if ($LASTEXITCODE) { throw 'Release upload failed' }
           gh release edit $tag --repo $env:GITHUB_REPOSITORY --draft=false --prerelease --latest=false
           if ($LASTEXITCODE) { throw 'Prerelease publication failed' }
