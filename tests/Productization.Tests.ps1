@@ -53,7 +53,8 @@ Case 'V3 桌面清单拒绝跨用户、越界文件与无效哈希' {
 }
 Case 'V3 桌面安装采用版本哈希路径，不覆盖正在运行的旧 EXE' {
     $text=Get-Content -LiteralPath (Join-Path $root 'lib/Desktop.ps1') -Raw
-    Check ($text.Contains("'app/3.2.0-beta.1-'") -and $text.Contains('Get-FileHash') -and $text.Contains('Assert-DesktopRegistration'))
+    # The ownership-compatible directory uses a numeric version; display metadata carries the prerelease suffix.
+    Check ($text.Contains("'app/3.2.0-'") -and $text.Contains('Get-FileHash') -and $text.Contains('Assert-DesktopRegistration'))
     $control=Get-Content -LiteralPath (Join-Path $root 'Control.ps1') -Raw
     Check ($control.Contains('$result.Code') -and $control.Contains('RestoreConflict') -and $control.Contains('-LogonType Interactive -RunLevel Limited'))
 }

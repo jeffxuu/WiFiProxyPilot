@@ -22,6 +22,35 @@ $script:Pointer='Software\WiFiProxySwitcher'
 $script:TaskPrefix='WiFiProxySwitcher-'
 $mutex=$null; $owned=$false; $code=0
 
+function Assert-ManagementEngineProtocol([string]$Root) {
+    $message='需要升级后台组件：无法确认正在运行的引擎支持持久管理意图。请先执行修复/升级安装，真正停止旧监控并启动新版；现有规则与最初代理备份将保留'
+    $engine=Join-Path $Root 'ProxyWatcher.ps1'; Assert-PlainPath $engine
+    if (-not [IO.File]::ReadAllText($engine).Contains('$script:EngineProtocol=2')) { throw $message }
+    $watch=New-UserMutex 'Watcher'; $free=$false
+    try { $free=Enter-Mutex $watch; if ($free) { $watch.ReleaseMutex() } } finally { $watch.Dispose() }
+    # The disk can be newer than a process already holding the watcher lock. Its live heartbeat
+    # must confirm the protocol before any intent change or fresh-scan request is persisted.
+    if ($free) { return }
+    try {
+        $path=Join-Path $Root 'state/status.json'; Assert-PlainPath $path
+        $bytes=Read-ConfigurationBytes $path
+        if ($bytes.Length -gt 65536) { throw '监控状态文件过大' }
+        $heartbeat=([Text.UTF8Encoding]::new($false,$true).GetString($bytes).TrimStart([char]0xFEFF)) | ConvertFrom-Json
+        foreach ($name in @('SchemaVersion','EngineVersion','Time','Outcome','RunId')) { if ($null -eq $heartbeat.PSObject.Properties[$name]) { throw '缺少运行协议字段' } }
+        $schema=0; $version=$null
+        if (-not [int]::TryParse([string]$heartbeat.SchemaVersion,[ref]$schema) -or $schema -lt 2 -or -not [Version]::TryParse(([string]$heartbeat.EngineVersion).Split('-')[0],[ref]$version) -or $version -lt [Version]'3.2') { throw '运行中的引擎版本过旧' }
+        if ([string]::IsNullOrEmpty([string]$heartbeat.RunId) -or $heartbeat.Outcome -eq 'Stopped') { throw '没有可确认的运行实例' }
+        $age=([DateTimeOffset]::Now-(ConvertTo-RecordTime $heartbeat.Time)).TotalSeconds
+        $poll=5
+        if ($null -ne $heartbeat.PSObject.Properties['PollSeconds']) { $value=0; if ([int]::TryParse([string]$heartbeat.PollSeconds,[ref]$value) -and $value -ge 1 -and $value -le 300) { $poll=$value } }
+        if ($age -lt -5 -or $age -ge [Math]::Max(30,2*$poll+15)) { throw '运行心跳已过期或时间异常' }
+    } catch {
+        $failure=[InvalidOperationException]::new($message+'。详情：'+$_.Exception.Message)
+        $failure.Data['WiFiProxyCode']='EngineUpgradeRequired'
+        throw $failure
+    }
+}
+
 
 try {
     Initialize-Windows
@@ -69,8 +98,7 @@ try {
     } else {
         $manifest=Read-Install $root
         if ($Action -in @('Pause','Resume','Direct','Start','Check')) {
-            $engine=Join-Path $root 'ProxyWatcher.ps1'; Assert-PlainPath $engine
-            if (-not [IO.File]::ReadAllText($engine).Contains('$script:EngineProtocol=2')) { throw '需要升级后台组件：旧引擎不支持持久管理意图。请先修复/升级安装，现有规则与最初代理备份将保留' }
+            Assert-ManagementEngineProtocol $root
         }
         switch ($Action) {
             'Pause' { Set-ManagementIntent $root 'Paused' | Out-Null; Write-Output '自动切换已暂停；当前手动代理可能继续生效。退出、锁屏、注销和重启后保持暂停' }

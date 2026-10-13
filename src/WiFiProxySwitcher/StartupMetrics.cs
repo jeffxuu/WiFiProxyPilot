@@ -15,7 +15,15 @@ internal static class StartupMetrics
     {
         if (Output == null) return;
         string temp = Output + ".tmp";
-        File.WriteAllText(temp, JsonSerializer.Serialize(Data, new JsonSerializerOptions { WriteIndented = true }));
-        File.Move(temp, Output, true);
+        try
+        {
+            File.WriteAllText(temp, JsonSerializer.Serialize(Data, new JsonSerializerOptions { WriteIndented = true }));
+            File.Move(temp, Output, true);
+        }
+        catch (IOException)
+        {
+            // Diagnostic collection must never break payload verification or the UI lifecycle.
+            Data["MetricsWriteFailures"] = Data.TryGetValue("MetricsWriteFailures", out var count) ? Convert.ToInt32(count) + 1 : 1;
+        }
     }
 }

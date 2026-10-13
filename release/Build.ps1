@@ -13,7 +13,7 @@ $hashes=[ordered]@{}
 $stream=[IO.File]::Open($zipPath,[IO.FileMode]::CreateNew)
 $zip=[IO.Compression.ZipArchive]::new($stream,[IO.Compression.ZipArchiveMode]::Create)
 try {
-    foreach ($name in @(Get-ProductFiles | Sort-Object)) {
+    foreach ($name in @(Get-DistributionFiles | Sort-Object)) {
         $path=Join-Path $repo $name
         if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw ('安装资源缺失: '+$name) }
         $hashes[$name]=(Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash

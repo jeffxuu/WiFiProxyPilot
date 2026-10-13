@@ -244,6 +244,7 @@ Case '配置错误被拒绝，不进行系统写入' {
 . (Join-Path $PSScriptRoot 'Productization.Tests.ps1')
 . (Join-Path $PSScriptRoot 'V31.Tests.ps1')
 . (Join-Path $PSScriptRoot 'V32.Engine.Tests.ps1')
+. (Join-Path $PSScriptRoot 'EngineProtocol.Tests.ps1')
 $failed=@($script:results | Where-Object { -not $_.Passed }).Count
 $report=[pscustomobject]@{ Time=[DateTimeOffset]::Now.ToString('o'); Platform=[Environment]::OSVersion.Platform.ToString(); PowerShell=$PSVersionTable.PSVersion.ToString(); Total=$script:results.Count; Passed=$script:results.Count-$failed; Failed=$failed; Results=$script:results.ToArray(); RealWindowsIntegration='NOT RUN by this simulation suite' }
 if ($ResultPath) { Write-JsonAtomic ([IO.Path]::GetFullPath($ResultPath)) $report }

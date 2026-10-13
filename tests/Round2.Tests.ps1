@@ -446,9 +446,19 @@ Case 'R2 升级前保存用户改过的脚本，未知新文件冲突拒绝覆�
     try {
         $m=Install-ProductFiles $script:life.Source $script:life.Root $null
         $edited=Join-Path $script:life.Root 'ProxyWatcher.ps1'; [IO.File]::WriteAllText($edited,'user customized watcher')
+        $originalFiles=@{}
+        foreach ($entry in $m.Files) { $originalFiles[$entry.Path]=(Get-FileHash -LiteralPath (Join-Path $script:life.Root $entry.Path) -Algorithm SHA256).Hash }
+        $originalFiles['state/installation.json']=(Get-FileHash -LiteralPath (Join-Path $script:life.Root 'state/installation.json') -Algorithm SHA256).Hash
         Install-ProductFiles $script:life.Source $script:life.Root $m | Out-Null
-        $backups=@(Get-ChildItem -LiteralPath (Join-Path $script:life.Root 'user-backups') -Recurse -File)
-        Check ($backups.Count -eq 1 -and (Get-Content -LiteralPath $backups[0].FullName -Raw) -ceq 'user customized watcher')
+        $backupDirectories=@(Get-ChildItem -LiteralPath (Join-Path $script:life.Root 'user-backups') -Directory)
+        Check ($backupDirectories.Count -eq 1) '本次升级应有一个完整备份目录'
+        $watcherBackup=Join-Path $backupDirectories[0].FullName 'ProxyWatcher.ps1'
+        Check ((Get-Content -LiteralPath $watcherBackup -Raw) -ceq 'user customized watcher') '用户改过的脚本内容必须完整保留'
+        # The transaction backs up every overwritten file, not just customized scripts.
+        foreach ($name in $originalFiles.Keys) {
+            $backup=Join-Path $backupDirectories[0].FullName $name
+            Check ((Test-Path -LiteralPath $backup) -and (Get-FileHash -LiteralPath $backup -Algorithm SHA256).Hash -ceq $originalFiles[$name]) ('升级备份原始字节不匹配: '+$name)
+        }
         $before=$script:life.Stops; $m.Files=@($m.Files | Where-Object {$_.Path -ne 'Diagnose.ps1'})
         $caught=$false; try { Install-ProductFiles $script:life.Source $script:life.Root $m | Out-Null } catch {$caught=$true}
         Check ($caught -and $script:life.Stops -eq $before)

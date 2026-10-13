@@ -46,6 +46,18 @@ internal sealed class AppController : IDisposable
         SessionGuard.Validate(); payload.Value.Verify();
         if (options.Command is "pause" or "resume" or "direct" or "check" && InstalledRoot() is string installed && !File.ReadAllText(Path.Combine(installed, "ProxyWatcher.ps1")).Contains("ManagementIntent", StringComparison.Ordinal))
             throw new InvalidOperationException("当前后台引擎仍为旧版本。请先在设置的高级操作中修复安装，保留现有名单与原始代理备份。");
+        if (options.Command is "pause" or "resume" or "direct" or "check" && StatusReader.IsWatcherRunning())
+        {
+            string activeRoot = InstalledRoot() ?? throw new InvalidOperationException("找不到运行中的后台安装。");
+            using var file = new FileStream(Path.Combine(activeRoot, "state", "status.json"), FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            if (file.Length > 65536) throw new InvalidDataException("后台状态文件过大。");
+            using var doc = JsonDocument.Parse(file); var h = doc.RootElement;
+            if (!h.TryGetProperty("SchemaVersion", out var schema) || !schema.TryGetInt32(out int number) || number < 2 ||
+                !h.TryGetProperty("EngineVersion", out var version) || !Version.TryParse(version.GetString()?.Split('-')[0], out var engine) || engine < new Version(3, 2) ||
+                !h.TryGetProperty("Time", out var time) || !DateTimeOffset.TryParse(time.ToString(), out var heartbeatTime) ||
+                (DateTimeOffset.Now - heartbeatTime).TotalSeconds is < -5 or > 615)
+                throw new InvalidOperationException("运行中的后台尚未确认新协议。请升级后台组件后再管理代理。");
+        }
         string resultPath = Path.Combine(ControlDir, "result-" + Guid.NewGuid().ToString("N") + ".json");
         var args = new List<string> { "-Action", options.Command, "-Quiet", "-ResultPath", resultPath };
         string? root = options.InstallDir ?? InstalledRoot();

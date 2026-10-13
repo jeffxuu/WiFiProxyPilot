@@ -33,7 +33,7 @@ internal static class StatusReader
             string reason = "暂时无法读取：" + e.Message;
             if (previous != null)
                 return previous with { Ssid = "暂时无法读取", Gateway = "暂时无法读取", Proxy = "暂时无法读取", Watcher = state == ApplicationState.UpgradeRequired ? "需要升级应用和后台组件" : "暂时无法读取", State = state, Fresh = false, Connected = false, Healthy = false,
-                    Reason = reason + "；上次成功读取：" + previous.Updated, Network = new(NetworkConnectionState.Unknown, ObservedAt: previous.Network?.ObservedAt, Reason: reason), Diagnostic = new(ProxyDiagnosticState.Unknown, Reason: reason) };
+                    Reason = reason + "；上次成功读取：" + previous.Updated, Health = "诊断未知 · 暂时无法读取", Rule = "暂时无法读取当前规则", ManualServer = "", AppliedRevision = "", Network = new(NetworkConnectionState.Unknown, ObservedAt: previous.Network?.ObservedAt, Reason: reason), Diagnostic = new(ProxyDiagnosticState.Unknown, Reason: reason) };
             return new(true, "暂时无法读取", "—", "暂时无法读取", "暂时无法读取", "暂时无法读取", "尚无成功检测", "", State: state, Reason: reason);
         }
     }
@@ -43,7 +43,7 @@ internal static class StatusReader
         var root = AppController.InstalledRoot();
         if (root == null) return new(false, "尚未开始", "—", "—", "等待配置", "未配置", "—", "", State: ApplicationState.NotInstalled, Reason: "根据 Wi-Fi 自动切换 Windows 手动代理；完成首次设置并确认后才会改变代理。", Network: new(NetworkConnectionState.Unknown), Diagnostic: new(ProxyDiagnosticState.Unknown));
         var configuration = ConfigurationStore.Read(root);
-        string ssid = "暂不可确认", iface = "—", gateway = "—", updated = "尚无成功检测", outcome = "", reason = "", revision = "", appliedRevision = "", engineVersion = "未知", networkKind = "Unknown", checkRequestId = "", ruleReason = "";
+        string ssid = "暂不可确认", iface = "—", gateway = "—", updated = "尚无成功检测", outcome = "", reason = "", revision = "", appliedRevision = "", engineVersion = "未知", networkKind = "Unknown", checkRequestId = "", ruleReason = "", observedServer = "";
         int engineSchema = 0;
         bool fresh = false, stable = false, heartbeatPresent = false, probeFresh = false;
         DateTimeOffset? observedAt = null, diagnosticAt = null;
@@ -58,6 +58,7 @@ internal static class StatusReader
             string Text(string k) => h.TryGetProperty(k, out var v) ? v.ToString() : "";
             heartbeatPresent = true;
             outcome = Text("Outcome"); reason = Text("Reason"); ruleReason = Text("RuleReason"); revision = Text("ConfigRevision"); appliedRevision = Text("AppliedRevision");
+            observedServer = Text("ActualServer");
             engineVersion = Text("EngineVersion"); int.TryParse(Text("SchemaVersion"), out engineSchema);
             checkRequestId = Text("CheckRequestId"); networkKind = Text("NetworkKind");
             ssid = Text("SSID"); gateway = Text("Gateway"); iface = Text("InterfaceGuid");
@@ -115,6 +116,11 @@ internal static class StatusReader
             if ((actual.Flags & 12) != 0 || actual.Pac.Length > 0) reason += "；已保留 PAC/自动检测，应用实际选路可能由其决定";
             policyManaged = IsPolicyManaged();
         }
+        if (fresh && stable && outcome is "Enable" or "Disable" && (enabled != (outcome == "Enable") || enabled && observedServer.Length > 0 && !server.Equals(observedServer, StringComparison.OrdinalIgnoreCase)))
+        {
+            reason = "手动代理已被外部程序修改，等待重新评估；" + reason; outcome = "Retry";
+            diagnosticState = ProxyDiagnosticState.Unknown; diagnosticReason = "代理地址已变化，原诊断不代表当前代理"; probeFresh = false;
+        }
         if (DateTime.UtcNow - metadataTime > TimeSpan.FromMinutes(1) && AppController.TestRoot == null)
         {
             try
@@ -142,7 +148,8 @@ internal static class StatusReader
             ApplicationState.UpgradeRequired => "需要升级后台组件", ApplicationState.Degraded => !running ? "后台未运行 · 请开启自动切换或查看日志" : !fresh ? "后台状态已过期" : "检测异常 · 保留当前设置",
             _ => stable ? "自动切换运行中" : "正在确认当前网络"
         };
-        string rule = configuration.Intent == ManagementIntent.Direct ? "直连 · 自动管理已暂停" : paused ? "已暂停 · 不写入代理" : !fresh ? "等待近期检测" : networkState == NetworkConnectionState.Disconnected ? "已确认 Wi-Fi 断开" : (ruleReason + reason).Contains("免代理", StringComparison.Ordinal) || (ruleReason + reason).Contains("白名单", StringComparison.Ordinal) ? "命中免代理 Wi-Fi 规则" : (ruleReason + reason).Contains("Safe", StringComparison.Ordinal) ? "Safe 失败回退直连" : connected ? "当前 Wi-Fi IPv4 网关" : "等待网络稳定确认";
+        bool configApplied = ConfigurationApplication.IsApplied(configuration.Revision, new(revision, appliedRevision, engineSchema, stable, fresh));
+        string rule = configuration.Intent == ManagementIntent.Direct ? "直连 · 自动管理已暂停" : paused ? "已暂停 · 不写入代理" : !fresh ? "等待近期检测" : !configApplied ? "已保存，等待后台稳定评估" : networkState == NetworkConnectionState.Disconnected ? "已确认 Wi-Fi 断开" : connected && configuration.Whitelist.Contains(ssid, StringComparer.OrdinalIgnoreCase) ? "命中免代理 Wi-Fi 规则" : outcome == "Disable" && (ruleReason + reason).Contains("Safe", StringComparison.Ordinal) ? "Safe 失败回退直连" : connected ? "当前 Wi-Fi IPv4 网关" : "等待网络稳定确认";
         var network = new NetworkStatus(networkState, fresh && connected ? ssid : "", iface, fresh && connected ? gateway : "", observedAt, fresh, ruleReason.Length > 0 ? ruleReason : reason);
         var diagnostic = new ProxyDiagnosticStatus(diagnosticState, diagnosticAt, probeFresh, diagnosticReason);
         return new(true, ssid, iface, gateway, proxy, watcher, updated, includeLogs ? Logs(root, errorsOnly, raw) : "", running, paused, healthy, rule, diagnosticReason, revision, outcome, reason, enabled, connected,

@@ -55,7 +55,21 @@ try
     Test("读取失败保留上次成功时间且不把旧状态当实时",()=>
     {
         var successful=StatusReader.Read(); File.WriteAllText(Path.Combine(fixture,"state","status.json"),"{broken"); var failedRead=StatusReader.Read();
-        Check(failedRead.State==ApplicationState.Degraded && !failedRead.Fresh && !failedRead.Healthy && !failedRead.Connected && failedRead.Updated==successful.Updated && failedRead.Reason.Contains("上次成功读取")); SaveHeartbeat();
+        Check(failedRead.State==ApplicationState.Degraded && !failedRead.Fresh && !failedRead.Healthy && !failedRead.Connected && failedRead.Updated==successful.Updated && failedRead.Reason.Contains("上次成功读取") && failedRead.Health.Contains("未知") && failedRead.ManualServer==""); SaveHeartbeat();
+    });
+    Test("未命中免代理的原因文本不会被误读为命中，新名单需等待后台稳定应用",()=>
+    {
+        config["Whitelist"]=new JsonArray("Test Hotspot"); SaveConfig();
+        var pending=StatusReader.Read(); Check(pending.Rule.Contains("等待后台") && !pending.Rule.Contains("命中免代理"));
+        heartbeat["ConfigRevision"]=ConfigurationStore.Read(fixture).Revision; heartbeat["AppliedRevision"]=ConfigurationStore.Read(fixture).Revision; SaveHeartbeat();
+        Check(StatusReader.Read().Rule.Contains("命中免代理"));
+        config["Whitelist"]=new JsonArray(); SaveConfig(); heartbeat["ConfigRevision"]=sha; heartbeat["AppliedRevision"]=sha; SaveHeartbeat();
+    });
+    Test("代理仍开启但地址被外部更改时不能伪报健康或沿用旧诊断",()=>
+    {
+        heartbeat["ActualServer"]="198.51.100.2:7890"; SaveHeartbeat();
+        var changed=StatusReader.Read(); Check(changed.State==ApplicationState.Degraded && !changed.Healthy && changed.Diagnostic?.State==ProxyDiagnosticState.Unknown && changed.Reason.Contains("外部"));
+        heartbeat.Remove("ActualServer"); SaveHeartbeat();
     });
     Test("常规刷新不读日志，日志按需只取近期有界内容",()=>
     {

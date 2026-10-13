@@ -1,0 +1,102 @@
+{
+  "Date": "2026-10-14",
+  "Timezone": "Asia/Shanghai",
+  "OS": "Windows 11 Enterprise 10.0.26200",
+  "CPU": "Intel Core Ultra 7 155H",
+  "LogicalProcessors": 22,
+  "RAMGiB": 15.465,
+  "Runtime": "8.0.31",
+  "SDK": "8.0.425",
+  "MeasuredExeSha256": "Unavailable: the earlier measurement helper aborted before writing final metadata; these samples do not certify the final preview EXE",
+  "Cold": "Fresh native/payload caches, not OS-cold; no reboot or Defender disabling",
+  "Rows": [
+    {
+      "Run": 1,
+      "Kind": "cache-cold",
+      "Raw": {
+        "ManagedEntry": 1767.5477,
+        "FirstVisible": 3963.7328,
+        "FirstPaint": 4176.442300000001,
+        "FirstStatus": 4271.0111,
+        "StatusRefreshMilliseconds": 11.7841,
+        "PayloadStart": 4278.9178,
+        "CacheHit": false,
+        "ExtractMs": 302.2221,
+        "VerifyMs": 0.1038,
+        "PayloadReady": 4603.3264,
+        "ReadyReopen": 12177.7484,
+        "TrayOpenMilliseconds": 13.5716,
+        "Reopened": 12539.7551,
+        "TrayPaintMilliseconds": 18.7583
+      }
+    },
+    {
+      "Run": 2,
+      "Kind": "warm attempt",
+      "Raw": {
+        "ManagedEntry": 198.622,
+        "FirstVisible": 1545.5552,
+        "FirstPaint": 1706.4225,
+        "FirstStatus": 1792.4624000000001,
+        "StatusRefreshMilliseconds": 6.7603,
+        "PayloadStart": 1813.4162,
+        "CacheHit": true,
+        "ExtractMs": 0,
+        "VerifyMs": 123.553,
+        "PayloadReady": 1955.035,
+        "ReadyReopen": 9741.9773,
+        "TrayOpenMilliseconds": 40.4957
+      }
+    },
+    {
+      "Run": 3,
+      "Kind": "warm attempt",
+      "Raw": {
+        "ManagedEntry": 207.5487,
+        "FirstVisible": 1611.7047,
+        "FirstPaint": 1751.5892999999999,
+        "FirstStatus": 1842.1714,
+        "StatusRefreshMilliseconds": 5.178,
+        "PayloadStart": 1854.1114,
+        "CacheHit": true,
+        "ExtractMs": 0,
+        "VerifyMs": 101.0923,
+        "PayloadReady": 1971.4995999999999,
+        "ReadyReopen": 9675.5357,
+        "TrayOpenMilliseconds": 75.502,
+        "Reopened": 10167.7667,
+        "TrayPaintMilliseconds": 85.7698
+      }
+    },
+    {
+      "Run": 4,
+      "Kind": "warm attempt",
+      "Raw": {
+        "ManagedEntry": 289.58759999999995,
+        "FirstVisible": 2130.8442,
+        "FirstPaint": 2292.786,
+        "FirstStatus": 2387.9306,
+        "StatusRefreshMilliseconds": 5.3438,
+        "PayloadStart": 2399.4913,
+        "InitializationError": "Access to the path is denied.",
+        "ReadyReopen": 10266.9095
+      }
+    }
+  ],
+  "StageProfile": {
+    "ManagedEntry": 1881.0368,
+    "ThemeLoadMilliseconds": 37.1719,
+    "WindowXamlMilliseconds": 1041.8898,
+    "FirstPageMilliseconds": 26.3573,
+    "FirstVisible": 4706.0029,
+    "FirstPaint": 4974.0803,
+    "FirstStatus": 5091.6642,
+    "StatusRefreshMilliseconds": 243.6931,
+    "PayloadStart": 5101.6391,
+    "CacheHit": false,
+    "ExtractMs": 548.9219,
+    "VerifyMs": 0.1772,
+    "PayloadReady": 5679.744
+  },
+  "StageProfileExeSha256": "8289D61017D1F0113E3EC458AB5EB2B7F4BD40F6D9389488391FB33C9B7D0BC3"
+}

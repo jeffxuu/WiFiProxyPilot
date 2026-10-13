@@ -1,6 +1,7 @@
 ﻿using System.Text;
 using System.Text.Json;
 using WiFiProxySwitcher.Core;
+using System.Windows.Forms;
 
 namespace WiFiProxySwitcher;
 internal static class Program
@@ -13,24 +14,27 @@ internal static class Program
         try
         {
             Options options = Options.Parse(args);
-            if (options.Command == "benchmark")
+            if (options.Command is "benchmark" or "preview")
             {
-                if (options.Output == null) throw new ArgumentException("/benchmark 需要 /output 指定隔离报告路径");
+                if (options.Output == null) throw new ArgumentException("隔离运行需要 /output 指定报告路径");
                 AppController.TestRoot = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(options.Output))!, "fixture");
             }
             StartupMetrics.Mark("ManagedEntry");
             ApplicationConfiguration.Initialize();
             if (options.Command == "self-test") return SelfTest(options);
+            if (options.Command == "ui-review") return DesktopVerification.RunHomeReview(options);
             SessionGuard.Validate();
-            if (options.Command is "gui" or "tray" or "benchmark")
+            if (options.Command is "gui" or "tray" or "benchmark" or "preview")
             {
                 using var instance = new SingleInstance();
                 if (!instance.Primary) return 0;
-                if (options.Command == "benchmark") { StartupMetrics.Output = Path.GetFullPath(options.Output!); DesktopSmoke.CreateFixture(AppController.TestRoot!); StartupMetrics.Mark("ManagedEntry"); }
+                if (options.Command is "benchmark" or "preview") { StartupMetrics.Output = Path.GetFullPath(options.Output!); Directory.CreateDirectory(Path.GetDirectoryName(StartupMetrics.Output)!); DesktopVerification.CreateFixture(AppController.TestRoot!); StartupMetrics.Mark("ManagedEntry"); }
                 using var app = new AppController();
-                using var context = new TrayContext(app, options.Command == "tray", instance.Activation, instance.ExitRequest);
-                if (options.Command == "benchmark") DesktopSmoke.AttachBenchmark(context);
-                Application.Run(context); return 0;
+                var desktop = new System.Windows.Application { ShutdownMode = System.Windows.ShutdownMode.OnExplicitShutdown };
+                SynchronizationContext.SetSynchronizationContext(new System.Windows.Threading.DispatcherSynchronizationContext(desktop.Dispatcher));
+                using var context = new PilotTrayHost(app, options.Command == "tray", instance.Activation, instance.ExitRequest);
+                if (options.Command == "benchmark") DesktopVerification.AttachBenchmark(context);
+                desktop.Run(); return 0;
             }
             using var controller = new AppController();
             SessionGuard.AttachConsole(uint.MaxValue); Console.OutputEncoding = new UTF8Encoding(false);
@@ -63,7 +67,7 @@ internal static class Program
             {
                 string dir = AppController.ControlDir; SafeFiles.PlainPath(dir); Directory.CreateDirectory(dir); string path = Path.Combine(dir, "desktop-errors.log");
                 if (File.Exists(path) && new FileInfo(path).Length > 262144) File.Move(path, path + ".1", true);
-                File.AppendAllText(path, DateTimeOffset.Now.ToString("o") + " " + ex.Message + Environment.NewLine, Encoding.UTF8);
+                File.AppendAllText(path, DateTimeOffset.Now.ToString("o") + " " + ex + Environment.NewLine, Encoding.UTF8);
                 if (args.Contains("/worker", StringComparer.OrdinalIgnoreCase))
                     File.WriteAllText(Path.Combine(dir, "uninstall-result.json"), JsonSerializer.Serialize(new { Succeeded = false, Code = "WorkerFailed", Message = ex.Message }));
             }
@@ -75,6 +79,6 @@ internal static class Program
     }
     private static int SelfTest(Options options)
     {
-        return DesktopSmoke.Run(options);
+        return DesktopVerification.Run(options);
     }
 }
