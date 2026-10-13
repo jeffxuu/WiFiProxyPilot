@@ -16,6 +16,10 @@ foreach($name in $files){
         if(-not (Test-Path -LiteralPath (Join-Path $root $local))){throw ('Broken local link: '+$name+' -> '+$target)}
     }
     if($content -match 'jeffxuu/WiFi-test'){throw ('Old repository URL: '+$name)}
+    if($content -match 'v3\.[01]\b'){throw ('Obsolete version display: '+$name)}
+    foreach($asset in @('WiFiProxySwitcher.exe','WiFiProxySwitcher.zip','SHA256.txt')){
+        if(-not $content.Contains('releases/download/v3.2.0-beta.1/'+$asset)){throw ('Missing v3.2 asset link: '+$name+' -> '+$asset)}
+    }
     if(-not $content.Contains('repos=jeffxuu/WiFiProxyPilot')){throw ('Missing repository Star History: '+$name)}
 }
 Write-Output ('Verified '+$files.Count+' complete README files, language navigation and relative links/images.')
