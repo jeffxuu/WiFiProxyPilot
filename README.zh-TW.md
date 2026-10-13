@@ -6,7 +6,7 @@
   ![Windows 11](https://img.shields.io/badge/Windows-11-0078D4)
   ![.NET 8](https://img.shields.io/badge/.NET-8-512BD4)
   ![WPF](https://img.shields.io/badge/UI-WPF-6557E8)
-  [![Release](https://img.shields.io/github/v/release/jeffxuu/WiFiProxyPilot)](https://github.com/jeffxuu/WiFiProxyPilot/releases)
+  [![Release](https://img.shields.io/github/v/release/jeffxuu/WiFiProxyPilot?include_prereleases)](https://github.com/jeffxuu/WiFiProxyPilot/releases/tag/v3.2.0-beta.1)
   [![MIT License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
   [![GitHub Stars](https://img.shields.io/github/stars/jeffxuu/WiFiProxyPilot?style=flat)](https://github.com/jeffxuu/WiFiProxyPilot/stargazers)
 </div>
@@ -15,7 +15,7 @@
 
 **Wi-Fi 切換，Proxy 隨行。** 在一般 Wi-Fi 網路使用閘道提供的 Proxy，並在你指定的網路直接連線。透過現代 WPF 桌面介面或系統匣管理。
 
-> **v3.2.0-beta.1 正在開發。** 螢幕擷取來自實際執行的 WPF 應用程式，網路資料為模擬。實際網路、登入／睡眠、安裝與解除安裝驗收，與隔離回歸測試分別記錄。目前軟體介面使用簡體中文；README 翻譯不表示介面已支援這些語言。儲存庫仍為 Private，等待擁有者決定是否公開，因此外部徽章與 Star History 可能無法使用。
+> **v3.2.0-beta.1 為 Beta／Prerelease。** 螢幕擷取來自實際執行的 WPF 應用程式，網路資料為模擬。實際網路、登入／睡眠、安裝與解除安裝驗收，與隔離回歸測試分別記錄。目前軟體介面使用簡體中文；README 翻譯不表示介面已支援這些語言。儲存庫為 Public；下載入口請見下方說明。
 
 ## 軟體畫面
 
@@ -49,9 +49,13 @@
 
 ## 下載與安裝
 
-**[下載最新 Release — 舊版 v3.0.0](https://github.com/jeffxuu/WiFiProxyPilot/releases/latest)** · **[瀏覽 Releases](https://github.com/jeffxuu/WiFiProxyPilot/releases)** · **[v3.2 建置產物](https://github.com/jeffxuu/WiFiProxyPilot/actions/workflows/build.yml)**
+**[下載 v3.2.0-beta.1 — Beta／Prerelease](https://github.com/jeffxuu/WiFiProxyPilot/releases/tag/v3.2.0-beta.1)** · **[瀏覽 Releases](https://github.com/jeffxuu/WiFiProxyPilot/releases)** · **[Windows 建置結果](https://github.com/jeffxuu/WiFiProxyPilot/actions/workflows/build.yml)**
 
-已發佈的 v3.0.0 採用較早的介面與行為，**不包含**上方展示的 v3.2 WPF 介面。v3.1.0 為 Draft Prerelease；目前尚無已發佈的 v3.2 Release。建置產物需要儲存庫存取權限，且會到期；草稿不能當作公開下載。安裝前請核對版本、發行說明與 SHA256。Release 徽章顯示已發佈版本，不代表開發版本。
+此發行包含上方展示的 v3.2 WPF 介面，標記為 Beta／Prerelease，尚未完成所有實際網路與安裝生命週期驗收。安裝前請核對發行說明與 SHA256。Release 徽章包含預發行版本；Actions 建置產物有保留期限。
+
+- [下載 EXE](https://github.com/jeffxuu/WiFiProxyPilot/releases/download/v3.2.0-beta.1/WiFiProxySwitcher.exe)
+- [下載 ZIP](https://github.com/jeffxuu/WiFiProxyPilot/releases/download/v3.2.0-beta.1/WiFiProxySwitcher.zip)
+- [下載 SHA256 驗證檔案](https://github.com/jeffxuu/WiFiProxyPilot/releases/download/v3.2.0-beta.1/SHA256.txt)
 
 目標平台為 **Windows 11 x64**，需要 Windows PowerShell 5.1、WLAN 服務與 Windows Script Host。自包含 EXE 不需要另外安裝 .NET、Python、Node.js 或 WebView2。不宣稱已驗證更廣泛的 Windows 相容性。組織原則可能限制 WLAN 資訊、Proxy 設定或排程工作。目前的建置未簽署，請保持 Windows 安全防護啟用。
 
@@ -108,7 +112,7 @@ Get-FileHash .\WiFiProxySwitcher.exe -Algorithm SHA256
 
 原始手動 Proxy 備份位於安裝目錄下的 `state/proxy-before-install.json`。升級保留它與使用者規則，不重新建立另一份「原始」備份。設定修改會保留前一份有效檔案。請勿公開這些本機檔案。
 
-已有安裝可開啟候選 EXE，進入**「設定 → 進階操作 → 修復安裝／升級」**。不要先解除安裝，也不要用儲存庫預設值覆蓋個人設定。詳見[設定移轉](docs/CONFIG_MIGRATION.md)。
+已有安裝可開啟 v3.2 EXE，進入**「設定 → 進階操作 → 修復安裝／升級」**。不要先解除安裝，也不要用儲存庫預設值覆蓋個人設定。詳見[設定移轉](docs/CONFIG_MIGRATION.md)。
 
 使用**「還原安裝前設定」**、**「設定 → 進階操作 → 解除安裝」**，或 Windows「已安裝的應用程式」。還原／解除安裝會比較目前設定與原始設定、工具最後寫入的設定。後續外部修改會觸發衝突，避免遭到覆蓋。強制還原需要明確選擇；解除安裝時也可以保留目前 Proxy。清理僅針對自有工作／啟動記錄與已驗證歸屬的產品檔案，保護無關或使用者修改過的檔案。直接連線模式保留原始備份。
 
@@ -120,7 +124,7 @@ Get-FileHash .\WiFiProxySwitcher.exe -Algorithm SHA256
 - 程式管理目前使用者的 Windows **手動 Proxy**，不變更 DNS、路由或防火牆規則。
 - 記錄與診斷可能包含網路識別資訊，分享前請檢查並遮蔽敏感內容。
 
-歷史提交與舊發行資料包含過去的網路範例和機器路徑。維持 Private 不會將它們移除。公開前，需要擁有者另外審閱[公開儲存庫稽核](docs/PUBLIC_REPOSITORY_AUDIT.md)。安全問題回報方式見 [SECURITY.md](SECURITY.md)。
+安全問題回報方式見 [SECURITY.md](SECURITY.md)。
 
 ## 常見問題
 
@@ -154,7 +158,7 @@ Get-FileHash .\WiFiProxySwitcher.exe -Algorithm SHA256
   </picture>
 </a>
 
-官方即時 SVG 使用本儲存庫真實的 GitHub 資料。儲存庫為 Private 時，外部服務無法向所有人展示其歷史。公開後仍需重新檢查；不會偽造星標或成長，也不會用虛構資料取代空白歷史。參閱[官方嵌入說明](https://www.star-history.com/blog/how-to-use-github-star-history/)。
+官方即時 SVG 使用本儲存庫真實的 GitHub 資料。截至 2026-10-14，經核驗的星標數為 0，因此空白圖表是預期結果。不會偽造星標或成長，也不會用虛構資料取代空白歷史。參閱[官方嵌入說明](https://www.star-history.com/blog/how-to-use-github-star-history/)。
 
 ## 貢獻與路線圖
 

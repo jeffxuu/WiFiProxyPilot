@@ -6,7 +6,7 @@
   ![Windows 11](https://img.shields.io/badge/Windows-11-0078D4)
   ![.NET 8](https://img.shields.io/badge/.NET-8-512BD4)
   ![WPF](https://img.shields.io/badge/UI-WPF-6557E8)
-  [![Release](https://img.shields.io/github/v/release/jeffxuu/WiFiProxyPilot)](https://github.com/jeffxuu/WiFiProxyPilot/releases)
+  [![Release](https://img.shields.io/github/v/release/jeffxuu/WiFiProxyPilot?include_prereleases)](https://github.com/jeffxuu/WiFiProxyPilot/releases)
   [![Licença MIT](https://img.shields.io/badge/License-MIT-green)](LICENSE)
   [![GitHub Stars](https://img.shields.io/github/stars/jeffxuu/WiFiProxyPilot?style=flat)](https://github.com/jeffxuu/WiFiProxyPilot/stargazers)
 </div>
@@ -15,7 +15,7 @@
 
 **Seu Wi-Fi muda. Seu proxy acompanha.** Use um proxy hospedado no gateway das redes Wi-Fi comuns e conexão direta nas redes que você escolher. Gerencie tudo por uma interface WPF moderna ou pela bandeja do sistema.
 
-> **A v3.2.0-beta.1 está em desenvolvimento.** As capturas mostram o aplicativo WPF real com dados de rede simulados. A validação com rede real, login/suspensão, instalação e desinstalação continua separada dos testes de regressão isolados. A interface atual está em chinês simplificado; as traduções do README não significam que a interface esteja traduzida. O repositório permanece Private até a decisão de publicação do proprietário, portanto os badges externos e o Star History podem ficar indisponíveis.
+> **A v3.2.0-beta.1 está publicada como Beta/Prerelease, não como versão estável.** As capturas mostram o aplicativo WPF real com dados de rede simulados. A validação com rede real, login/suspensão, instalação e desinstalação continua separada dos testes de regressão isolados. A interface atual está em chinês simplificado; as traduções do README não significam que a interface esteja traduzida. O repositório é Public, com confirmação do proprietário.
 
 ## Capturas de tela
 
@@ -49,9 +49,9 @@ Todas as imagens são capturas reais do aplicativo em um ambiente isolado, **nã
 
 ## Download e instalação
 
-**[Baixar a última versão publicada: v3.0.0 anterior](https://github.com/jeffxuu/WiFiProxyPilot/releases/latest)** · **[Ver versões](https://github.com/jeffxuu/WiFiProxyPilot/releases)** · **[Artefatos de compilação v3.2](https://github.com/jeffxuu/WiFiProxyPilot/actions/workflows/build.yml)**
+**[Baixar v3.2.0-beta.1 — Beta/Prerelease](https://github.com/jeffxuu/WiFiProxyPilot/releases/tag/v3.2.0-beta.1)** · **[EXE](https://github.com/jeffxuu/WiFiProxyPilot/releases/download/v3.2.0-beta.1/WiFiProxySwitcher.exe)** · **[ZIP](https://github.com/jeffxuu/WiFiProxyPilot/releases/download/v3.2.0-beta.1/WiFiProxySwitcher.zip)** · **[SHA256.txt](https://github.com/jeffxuu/WiFiProxyPilot/releases/download/v3.2.0-beta.1/SHA256.txt)** · **[Ver versões](https://github.com/jeffxuu/WiFiProxyPilot/releases)** · **[Artefatos de compilação v3.2](https://github.com/jeffxuu/WiFiProxyPilot/actions/workflows/build.yml)**
 
-A v3.0.0 publicada tem a interface e o comportamento anteriores; ela **não inclui** a interface WPF v3.2 mostrada acima. A v3.1.0 é uma Draft Prerelease. Atualmente não existe uma versão v3.2 publicada. Os artefatos de compilação exigem acesso ao repositório e expiram; rascunhos não são downloads públicos. Confira a versão, as notas e o SHA256 antes de instalar. O badge Release acompanha versões publicadas, não a versão em desenvolvimento.
+A versão publicada v3.2.0-beta.1 contém a interface WPF mostrada acima e está marcada como **Beta/Prerelease**. Ela não é uma versão estável. Confira a versão, as notas e o SHA256 antes de instalar. Os artefatos de compilação são uma opção separada de download e expiram. O badge Release inclui as pré-versões.
 
 A plataforma prevista é **Windows 11 x64**, com Windows PowerShell 5.1, serviço WLAN e Windows Script Host. O EXE autocontido dispensa instalação separada de .NET, Python, Node.js ou WebView2. Não se afirma compatibilidade com outras versões do Windows. Políticas da organização podem restringir informações WLAN, configurações de proxy ou tarefas agendadas. As compilações atuais não têm assinatura digital; mantenha as proteções de segurança do Windows ativadas.
 
@@ -120,7 +120,7 @@ Use **Restaurar configuração original**, **Configurações → Operações ava
 - O aplicativo gerencia o **proxy manual** do usuário atual do Windows; não altera DNS, rotas nem regras de firewall.
 - Logs e diagnósticos podem incluir identificadores de rede. Revise e anonimize antes de compartilhar.
 
-Commits históricos e materiais de versões antigas contêm exemplos de redes e caminhos da máquina. Manter o repositório Private não os remove. A publicação exige que o proprietário revise separadamente a [auditoria antes da publicação](docs/PUBLIC_REPOSITORY_AUDIT.md). Para problemas de segurança, consulte [SECURITY.md](SECURITY.md).
+Para problemas de segurança, consulte [SECURITY.md](SECURITY.md).
 
 ## Perguntas frequentes
 
@@ -154,7 +154,7 @@ Se o WiFi Proxy Pilot facilita seu trabalho, considere dar uma estrela ao projet
   </picture>
 </a>
 
-O SVG oficial ao vivo usa os dados reais deste repositório no GitHub. Enquanto o repositório estiver Private, o serviço externo não poderá mostrar seu histórico para todos. Será necessário verificar novamente após a publicação; não inventamos estrelas nem crescimento, e um histórico vazio não é substituído por dados fictícios. Veja o [guia oficial de incorporação](https://www.star-history.com/blog/how-to-use-github-star-history/).
+O SVG oficial ao vivo usa os dados reais deste repositório no GitHub. Verificado em 14 de outubro de 2026: **0 estrelas** e resposta **HTTP 200** para os SVGs dos temas claro e escuro. Com zero estrelas, o histórico vazio é esperado; não inventamos estrelas nem crescimento, e esse histórico não é substituído por dados fictícios. Veja o [guia oficial de incorporação](https://www.star-history.com/blog/how-to-use-github-star-history/).
 
 ## Contribuições e próximos passos
 
