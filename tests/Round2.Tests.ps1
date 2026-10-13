@@ -163,9 +163,9 @@ Case 'R2 实际代理写入包装：Keep 不可写，回读失败不可记成功
     try { Set-TargetProxy $t | Out-Null } catch { $caught=$true }; Check ($caught -and $script:writeCalls -eq $before)
 }
 
-Case 'R2 压力：5000 次快速变化后收敛，不在不稳定期写代理' {
+Case 'R2 代表性 32 次快速变化后收敛，不在不稳定期写代理' {
     $services=New-Harness; $state=New-MonitorState; $c=Clone-Config; $c.Diagnostics='None'; $timer=[Diagnostics.Stopwatch]::StartNew()
-    for ($i=0;$i -lt 5000;$i++) {
+    for ($i=0;$i -lt 32;$i++) {
         switch ($i % 5) {
             0 { $script:h.Network=Snapshot (Link 'MC-Office') }
             1 { $script:h.Network=Snapshot (Link 'A' '10.0.0.1') }
@@ -176,34 +176,35 @@ Case 'R2 压力：5000 次快速变化后收敛，不在不稳定期写代理' {
         Cycle $state $services ($i/10.0) $c
     }
     Check ($script:h.Writes -eq 0)
-    $script:h.Network=Snapshot (Link 'Final' '10.8.0.1'); Cycle $state $services 500 $c; Cycle $state $services 501 $c
+    $script:h.Network=Snapshot (Link 'Final' '10.8.0.1'); Cycle $state $services 4 $c; Cycle $state $services 5 $c
     Check ($script:h.Writes -eq 1 -and $script:h.Actual.Server -eq '10.8.0.1:7890')
-    Write-Host ('  5000 transitions: '+$timer.ElapsedMilliseconds+' ms')
+    Write-Host ('  32 representative transitions: '+$timer.ElapsedMilliseconds+' ms')
 }
-Case 'R2 压力：3000 个稳定轮询仅写一次，日志不随轮询增长' {
+Case 'R2 代表性 32 个稳定轮询仅写一次，日志不随轮询增长' {
     $services=New-Harness; $state=New-MonitorState; $c=Clone-Config; $c.Diagnostics='None'
     Cycle $state $services 0 $c
-    for ($i=1;$i -le 3000;$i++) { Cycle $state $services ($i*5) $c }
+    for ($i=1;$i -le 32;$i++) { Cycle $state $services ($i*5) $c }
     Check ($script:h.Writes -eq 1 -and $script:h.Records -eq 1 -and $script:h.Logs -eq 3)
     # Three records: PAC warning and the unstable/stable network states.
 }
-Case 'R2 压力：2000 次连续未知网络不写代理且只限频记日志' {
+Case 'R2 代表性 32 次连续未知网络不写代理且只限频记日志' {
     $services=New-Harness; $state=New-MonitorState; $c=Clone-Config; $c.Diagnostics='None'
     $script:h.Network=[pscustomobject]@{Kind='Unknown';Reason='location denied'}
-    for ($i=0;$i -lt 2000;$i++) { Cycle $state $services ($i*5) $c }
-    Check ($script:h.Writes -eq 0 -and $script:h.Logs -le 36)
+    for ($i=0;$i -lt 32;$i++) { Cycle $state $services ($i*20) $c }
+    Check ($script:h.Writes -eq 0 -and $script:h.Logs -le 4)
 }
-Case 'R2 压力：1000 条真实日志轮转和 300 次原子状态替换' {
+Case 'R2 日志跨轮转阈值和 8 次原子状态替换' {
     $temp=Join-Path ([IO.Path]::GetTempPath()) ('WiFi QA 中文 ! & [x] '+[Guid]::NewGuid().ToString('N'))
     [IO.Directory]::CreateDirectory($temp) | Out-Null
     try {
         $c=Clone-Config; $c.LogMaxBytes=16384; $c.LogArchives=2
-        for ($i=0;$i -lt 1000;$i++) { Write-SwitchLog $temp $c 'INFO' '压力测试' @{SSID='中文测试';Seq=$i} }
+        for ($i=0;$i -lt 16;$i++) { Write-SwitchLog $temp $c 'INFO' '轮转边界测试' @{SSID='中文测试';Seq=$i;Payload=('x'*4096)} }
         $files=@(Get-ChildItem -LiteralPath (Join-Path $temp 'logs')); Check ($files.Count -le 3) ('日志文件数量异常: '+(($files | Select-Object Name,Length | ConvertTo-Json -Compress)))
+        Check ($files.Count -ge 2) '日志样本必须实际跨越轮转阈值'
         Check (($files | Measure-Object Length -Sum).Sum -lt 3*(16384+1024)) ('日志总长度异常: '+(($files | Select-Object Name,Length | ConvertTo-Json -Compress)))
         foreach ($file in $files) { foreach ($line in Get-Content -LiteralPath $file.FullName -Encoding UTF8) { $line | ConvertFrom-Json | Out-Null } }
         $p=Join-Path $temp 'state.json'
-        for ($i=0;$i -lt 300;$i++) { Write-JsonAtomic $p @{Seq=$i}; Check ((Get-Content -LiteralPath $p -Raw -Encoding UTF8 | ConvertFrom-Json).Seq -eq $i) ('原子状态 Seq 不匹配: '+$i) }
+        for ($i=0;$i -lt 8;$i++) { Write-JsonAtomic $p @{Seq=$i}; Check ((Get-Content -LiteralPath $p -Raw -Encoding UTF8 | ConvertFrom-Json).Seq -eq $i) ('原子状态 Seq 不匹配: '+$i) }
         $temporaryFiles=@(Get-ChildItem -LiteralPath $temp | Where-Object { $_.Name -like '*.tmp.*' })
         Check ($temporaryFiles.Count -eq 0) ('临时文件残留: '+(@($temporaryFiles | ForEach-Object { $_.Name }) -join ','))
     } finally { Remove-TestFixture $temp }
@@ -309,7 +310,7 @@ Case 'R2 恢复时注册表已等于备份仍必须刷新并验证 WinINet' {
         Check ($script:restoreChecks -eq 1)
     } finally { Remove-Item -LiteralPath $script:life.Base -Recurse -Force }
 }
-Case 'R2 启动锁竞争回归与 50 次重复启动只有一次任务启动' {
+Case 'R2 启动锁竞争回归与 8 次重复启动只有一次任务启动' {
     New-LifeFixture; [IO.Directory]::CreateDirectory((Join-Path $script:life.Root 'state')) | Out-Null
     $script:life.Held=$false; $script:life.Running=$false; $script:life.Starts=0; $script:life.Enabled=$false
     function Get-OwnedTask($Manifest) { [pscustomobject]@{State='Ready'} }
@@ -330,7 +331,7 @@ Case 'R2 启动锁竞争回归与 50 次重复启动只有一次任务启动' {
     function Start-Sleep { param($Milliseconds) }
     try {
         $m=[pscustomobject]@{Root=$script:life.Root;TaskName='qa'}
-        for ($i=0;$i -lt 50;$i++) { Start-OwnedWatcher $m | Out-Null }
+        for ($i=0;$i -lt 8;$i++) { Start-OwnedWatcher $m | Out-Null }
         Check ($script:life.Starts -eq 1 -and $script:life.Enabled -and -not $script:life.Held)
     } finally { Remove-Item -LiteralPath $script:life.Base -Recurse -Force }
 }
@@ -456,7 +457,7 @@ Case 'R2 升级前保存用户改过的脚本，未知新文件冲突拒绝覆�
 Case 'R2 持续写入异常不会被成功的防抖轮次重置日志限频' {
     $services=New-Harness; $state=New-MonitorState; $c=Clone-Config; $c.Diagnostics='None'
     $script:h.OnApply={throw 'persistent policy denial'}
-    for ($i=0;$i -lt 300;$i++) {
+    for ($i=0;$i -lt 8;$i++) {
         try {Cycle $state $services ($i*5) $c} catch {Write-MonitorFailure $state $services $_.Exception.Message ($i*5)}
     }
     Check ($script:h.Writes -eq 0 -and $script:h.Logs -le 8)

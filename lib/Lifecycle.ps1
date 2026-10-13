@@ -3,7 +3,11 @@ $script:Pointer='Software\WiFiProxySwitcher'
 $script:TaskPrefix='WiFiProxySwitcher-'
 
 function Get-ProductFiles {
-    return @('Control.ps1','ProxyWatcher.ps1','Diagnose.ps1','SilentLauncher.vbs','config.json','README.md','tools/Install.bat','tools/Start.bat','tools/Stop.bat','tools/Uninstall.bat','tools/RestoreProxy.bat','tools/Status.bat','tools/Diagnose.bat','lib/Core.ps1','lib/Windows.ps1','lib/Native.cs','lib/Monitor.ps1','lib/Lifecycle.ps1','lib/Desktop.ps1','tests/Run-Tests.ps1','tests/Run-Tests.bat','tests/ProbeServer.cs','tests/Round2.Tests.ps1','tests/TaskOwnership.Tests.ps1','tests/Productization.Tests.ps1','docs/ARCHITECTURE.md','docs/WINDOWS_ACCEPTANCE.md','docs/TEST_RESULTS.md','docs/REVIEW_ROUND2.md','docs/TASK_OWNERSHIP_FIX.md','docs/test-results.json','docs/ADVANCED_USAGE.md','docs/PRODUCTIZATION.md','docs/PRODUCT_WINDOWS_ACCEPTANCE.md','docs/PRODUCT_TEST_RESULTS.md','docs/REPOSITORY_AUDIT_V3.md','docs/product-engine-tests.json','docs/product-launcher-tests.json','tests/V31.Tests.ps1','tools/Measure-Startup.ps1','docs/UI_DESIGN_V3_1.md','docs/TRAY_LIFECYCLE.md','docs/STARTUP_PERFORMANCE.md','docs/CONFIG_HOT_RELOAD.md','docs/TEST_RESULTS_V3_1.md','docs/CHANGES_V3_1.md')
+    # Historical names remain valid ownership records; they are not shipped in the new payload.
+    return @(@('Control.ps1','ProxyWatcher.ps1','Diagnose.ps1','SilentLauncher.vbs','config.json','README.md','tools/Install.bat','tools/Start.bat','tools/Stop.bat','tools/Uninstall.bat','tools/RestoreProxy.bat','tools/Status.bat','tools/Diagnose.bat','lib/Core.ps1','lib/Windows.ps1','lib/Native.cs','lib/Monitor.ps1','lib/Lifecycle.ps1','lib/Desktop.ps1','tests/Run-Tests.ps1','tests/Run-Tests.bat','tests/ProbeServer.cs','tests/Round2.Tests.ps1','tests/TaskOwnership.Tests.ps1','tests/Productization.Tests.ps1','docs/ARCHITECTURE.md','docs/WINDOWS_ACCEPTANCE.md','docs/TEST_RESULTS.md','docs/REVIEW_ROUND2.md','docs/TASK_OWNERSHIP_FIX.md','docs/test-results.json','docs/ADVANCED_USAGE.md','docs/PRODUCTIZATION.md','docs/PRODUCT_WINDOWS_ACCEPTANCE.md','docs/PRODUCT_TEST_RESULTS.md','docs/REPOSITORY_AUDIT_V3.md','docs/product-engine-tests.json','docs/product-launcher-tests.json','tests/V31.Tests.ps1','tools/Measure-Startup.ps1','docs/UI_DESIGN_V3_1.md','docs/TRAY_LIFECYCLE.md','docs/STARTUP_PERFORMANCE.md','docs/CONFIG_HOT_RELOAD.md','docs/TEST_RESULTS_V3_1.md','docs/CHANGES_V3_1.md')+@(Get-DistributionFiles) | Select-Object -Unique)
+}
+function Get-DistributionFiles {
+    return @('Control.ps1','ProxyWatcher.ps1','Diagnose.ps1','SilentLauncher.vbs','config.json','README.md','README.zh-CN.md','LICENSE','tools/Install.bat','tools/Start.bat','tools/Stop.bat','tools/Uninstall.bat','tools/RestoreProxy.bat','tools/Status.bat','tools/Diagnose.bat','lib/Core.ps1','lib/Windows.ps1','lib/Native.cs','lib/Monitor.ps1','lib/Lifecycle.ps1','lib/Desktop.ps1','docs/PRODUCT_REQUIREMENTS.md','docs/INTERACTION_STATE_MACHINE.md','docs/UI_DESIGN_SYSTEM.md','docs/PERFORMANCE_V3_2.md','docs/CONFIG_MIGRATION.md','docs/TEST_RESULTS_V3_2.md','docs/RELEASE_CHECKLIST.md','docs/PUBLIC_REPOSITORY_AUDIT.md','docs/THIRD_PARTY_NOTICES.md')
 }
 function Assert-InstallManifest($Manifest) {
     $allowed=@(Get-ProductFiles)+@('Install.bat','Start.bat','Stop.bat','Uninstall.bat','RestoreProxy.bat','Status.bat','Diagnose.bat'); $seen=@{}
@@ -90,7 +94,7 @@ function Write-ControlFailure([string]$Action,[string]$Message) {
 }
 
 function Copy-ProductPayload([string]$Source,[string]$Root,[switch]$PreserveConfig) {
-    foreach ($name in Get-ProductFiles) {
+    foreach ($name in Get-DistributionFiles) {
         if ($PreserveConfig -and $name -eq 'config.json') { continue }
         $src=Join-Path $Source $name; $dst=Join-Path $Root $name
         Assert-PlainPath $dst
@@ -102,7 +106,7 @@ function Copy-ProductPayload([string]$Source,[string]$Root,[switch]$PreserveConf
 }
 function New-InstallManifest([string]$Root,[string]$FilesRoot,$Previous,[switch]$InPlace) {
     $manifest=[pscustomobject]@{Product='WiFiProxySwitcher-v1';Root=$Root;OwnerSid=(Get-UserSid);TaskName=($script:TaskPrefix+(Get-UserSid));Files=@()}
-    foreach ($name in Get-ProductFiles) {
+    foreach ($name in Get-DistributionFiles) {
         $hash=(Get-FileHash -LiteralPath (Join-Path $FilesRoot $name) -Algorithm SHA256).Hash
         if ($null -ne $Previous -and ($name -eq 'config.json' -or $InPlace)) {
             $old=@($Previous.Files | Where-Object { $_.Path.Replace('\','/') -ceq $name })
@@ -110,28 +114,33 @@ function New-InstallManifest([string]$Root,[string]$FilesRoot,$Previous,[switch]
         }
         $manifest.Files += [pscustomobject]@{Path=$name;Hash=$hash}
     }
-    # Keep ownership of old root-level BAT files so upgrades can still uninstall them safely.
+    # Keep ownership of historical shipped files so upgrades can still uninstall them safely.
     if ($null -ne $Previous) {
         foreach ($entry in $Previous.Files) {
-            if ($entry.Path -in @('Install.bat','Start.bat','Stop.bat','Uninstall.bat','RestoreProxy.bat','Status.bat','Diagnose.bat') -and (Test-Path -LiteralPath (Join-Path $Root $entry.Path))) { $manifest.Files += $entry }
+            if (-not @($manifest.Files | Where-Object { $_.Path.Replace('\','/') -ceq $entry.Path.Replace('\','/') }).Count -and (Test-Path -LiteralPath (Join-Path $Root $entry.Path))) { $manifest.Files += $entry }
         }
     }
     return $manifest
 }
-function Install-ProductFiles([string]$Source,[string]$Root,$Previous) {
+function Install-ProductFiles([string]$Source,[string]$Root,$Previous,[string]$SetupConfigPath='') {
     if ($null -ne $Previous -and $null -ne $Previous.PSObject.Properties['Phase'] -and $Previous.Phase -eq 'Uninstalling') { throw '上次卸载尚未完成，请先从完整项目包运行 Uninstall.bat -InstallDir 指定此目录' }
     # Complete source and config preflight happens before stopping an existing monitor or touching its files.
-    foreach ($name in Get-ProductFiles) {
+    foreach ($name in Get-DistributionFiles) {
         $p=Join-Path $Source $name
         if (-not (Test-Path -LiteralPath $p -PathType Leaf)) { throw ('安装包文件缺失: '+$name) }
         Assert-PlainPath $p
     }
     $configPath=Join-Path $Source 'config.json'; if ($null -ne $Previous) { $configPath=Join-Path $Root 'config.json' }
-    Read-Configuration $configPath | Out-Null
-    foreach ($name in Get-ProductFiles) { Assert-PlainPath (Join-Path $Root $name) }
+    if ($SetupConfigPath) {
+        if ($null -ne $Previous) { throw '升级必须保留实际安装配置，不能用首次设置草稿覆盖' }
+        Assert-PlainPath $SetupConfigPath; $configPath=$SetupConfigPath
+    }
+    $validatedConfig=Read-Configuration $configPath
+    if ($SetupConfigPath -and -not $validatedConfig.SetupComplete) { throw '首次设置草稿尚未确认，拒绝开启后台组件' }
+    foreach ($name in Get-DistributionFiles) { Assert-PlainPath (Join-Path $Root $name) }
     if ($null -ne $Previous) {
         Read-OriginalProxy $Root | Out-Null
-        foreach ($name in Get-ProductFiles) {
+        foreach ($name in Get-DistributionFiles) {
             if ((Test-Path -LiteralPath (Join-Path $Root $name)) -and -not @($Previous.Files | Where-Object { $_.Path.Replace('\','/') -ceq $name }).Count) { throw ('新版本路径被非本工具文件占用，拒绝覆盖: '+$name) }
         }
     }
@@ -153,6 +162,14 @@ function Install-ProductFiles([string]$Source,[string]$Root,$Previous) {
             }
         }
         Copy-ProductPayload $Source $Root -PreserveConfig
+        # Migrate only the actual installed file. Keep the original proxy backup byte-for-byte.
+        # The shared configuration lock prevents a simultaneous GUI save from being lost.
+        $installedConfig=Join-Path $Root 'config.json'; $gate=New-ConfigurationMutex $installedConfig; $taken=$false
+        try {
+            $taken=Enter-Mutex $gate 5000; if (-not $taken) { throw '配置正在保存，未迁移，请稍后重新升级' }
+            $migrated=Read-Configuration $installedConfig
+            Write-JsonAtomic $installedConfig $migrated ($installedConfig+'.previous')
+        } finally { if ($taken) { $gate.ReleaseMutex() }; $gate.Dispose() }
         $manifest=New-InstallManifest $Root $Root $Previous -InPlace:([string]::Equals($Source,$Root,[StringComparison]::OrdinalIgnoreCase))
         Write-JsonAtomic (Join-Path $Root 'state/installation.json') $manifest
         return $manifest
@@ -162,6 +179,7 @@ function Install-ProductFiles([string]$Source,[string]$Root,$Previous) {
     try {
         [IO.Directory]::CreateDirectory($stage) | Out-Null; Protect-InstallDirectory $stage
         Copy-ProductPayload $Source $stage
+        Write-JsonAtomic (Join-Path $stage 'config.json') $validatedConfig
         [IO.Directory]::CreateDirectory((Join-Path $stage 'state')) | Out-Null
         $before=Get-ManualSnapshot
         Assert-ManualSnapshot $before
@@ -300,6 +318,20 @@ function Restore-OwnedProxy($Manifest,[switch]$Force) {
     if (-not (Test-RestoreAllowed $current $last -Force:$Force)) { $conflict=[InvalidOperationException]::new('检测到工具最后一次写入之后的代理变更或未完成写入。已停止监控；为保护后续修改，未恢复/删除安装。确认后使用 -ForceRestore；卸载也可用 -KeepCurrentProxy 保留当前配置'); $conflict.Data['WiFiProxyCode']='RestoreConflict'; throw $conflict }
     Restore-ManualSnapshot $original
     Write-Output '已恢复安装前手动代理配置；PAC/自动检测保持当前设置'
+}
+function Set-OwnedDirectMode($Manifest) {
+    $path=Join-Path $Manifest.Root 'config.json'; Assert-PlainPath $path
+    $gate=New-ConfigurationMutex $path; $taken=$false
+    try {
+        $taken=Enter-Mutex $gate 5000; if (-not $taken) { throw '配置正在保存，请稍后重试' }
+        $c=Read-Configuration $path
+        if (-not $c.SetupComplete) { throw '请先完成首次设置' }
+        # Persist before the one-time write, under the same gate the watcher holds before applying.
+        $c.ManagementIntent='Direct'; Write-JsonAtomic $path $c ($path+'.previous')
+        $applied=Set-TargetProxy ([pscustomobject]@{Action='Disable';Server=''})
+        if ($applied.Changed) { Write-JsonAtomic (Join-Path $Manifest.Root 'state/last-applied.json') $applied.Snapshot }
+        Write-Output '已恢复直连并暂停自动切换；仅关闭 Windows 手动代理，安装前备份和 PAC/自动检测保持不变'
+    } finally { if ($taken) { $gate.ReleaseMutex() }; $gate.Dispose() }
 }
 function Read-OriginalProxy([string]$Root) {
     $path=Join-Path $Root 'state/proxy-before-install.json'; Assert-PlainPath $path

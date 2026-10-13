@@ -111,11 +111,11 @@ internal sealed class MainForm : Form
     private void BuildNetworks()
     {
         var stack = Stack(5); stack.RowStyles.Add(new RowStyle(SizeType.AutoSize)); stack.RowStyles.Add(new RowStyle(SizeType.Percent, 100)); for (int i = 0; i < 3; i++) stack.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        var note = Label("连接名单中的 Wi-Fi 时自动关闭 Windows 手动代理；\n连接其他 Wi-Fi 时按当前网关自动配置代理。\n完整名称匹配，忽略大小写。内置规则始终保留。", 10); stack.Controls.Add(note, 0, 0);
+        var note = Label("连接规则中的 Wi-Fi 时自动关闭 Windows 手动代理；\n连接其他 Wi-Fi 时按当前网关自动配置代理。\n完整名称匹配，忽略大小写。所有规则均可删除。", 10); stack.Controls.Add(note, 0, 0);
         stack.Controls.Add(networks, 0, 1); var add = Row(); add.Controls.Add(input); add.Controls.Add(Button("添加", AddInput));
         add.Controls.Add(AsyncButton("从当前连接添加", async () => { if (busy) return; SetBusy(true); try { input.Text = await Task.Run(StatusReader.ConfirmedSsid); AddInput(); } catch (Exception e) { ShowError(e); } finally { SetBusy(false); } }));
         input.KeyDown += (_, e) => { if (e.KeyCode == Keys.Enter) { AddInput(); e.SuppressKeyPress = true; } }; stack.Controls.Add(add, 0, 2);
-        var edit = Row(); edit.Controls.Add(Button("删除所选", () => { int n = networks.SelectedIndex; if (n < 0) return; if (ConfigurationStore.BuiltIns.Contains(draftNames[n], StringComparer.OrdinalIgnoreCase)) { Feedback("内置规则始终保留，不能删除。"); return; } draftNames.RemoveAt(n); listDirty = true; RenderNames(); Feedback("尚未保存：点击“保存并应用”生效。"); }));
+        var edit = Row(); edit.Controls.Add(Button("删除所选", () => { int n = networks.SelectedIndex; if (n < 0) return; draftNames.RemoveAt(n); listDirty = true; RenderNames(); Feedback("尚未保存：点击“保存并应用”生效。"); }));
         edit.Controls.Add(AsyncButton("保存并应用", () => SaveConfiguration(false), true)); edit.Controls.Add(AsyncButton("取消修改 / 重新载入", async () => { if (busy) return; SetBusy(true); try { await ReloadConfiguration(true, false); Feedback("已重新载入名单，取消尚未保存的修改。"); } finally { SetBusy(false); } })); stack.Controls.Add(edit, 0, 3);
         stack.Controls.Add(Label("名称按真实 SSID 的 32 字节限制验证；支持中文和合法空格。", 9), 0, 4); pages[1].Controls.Add(stack);
     }
@@ -180,7 +180,7 @@ internal sealed class MainForm : Form
     {
         try { string name = ConfigurationStore.ValidateSsid(input.Text); if (draftNames.Contains(name, StringComparer.OrdinalIgnoreCase)) { Feedback("该完整 Wi-Fi 名称已在名单中（忽略大小写）。"); return; } draftNames.Add(name); listDirty = true; RenderNames(); input.Clear(); Feedback("已添加，点击“保存并应用”生效。"); } catch (Exception e) { Feedback(e.Message); }
     }
-    private void RenderNames() { networks.BeginUpdate(); networks.Items.Clear(); foreach (string name in draftNames) networks.Items.Add(name + (ConfigurationStore.BuiltIns.Contains(name, StringComparer.OrdinalIgnoreCase) ? "   · 内置规则" : "   · 自定义")); networks.EndUpdate(); }
+    private void RenderNames() { networks.BeginUpdate(); networks.Items.Clear(); foreach (string name in draftNames) networks.Items.Add(name); networks.EndUpdate(); }
     private void LoadNames() { if (configuration == null) return; draftNames.Clear(); draftNames.AddRange(ConfigurationStore.Normalize(configuration.Whitelist)); listDirty = false; RenderNames(); }
     private void LoadSettings()
     {

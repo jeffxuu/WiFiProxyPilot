@@ -16,13 +16,12 @@ function New-ConfigurationReloadState([string]$Path) {
 function Update-MonitorConfiguration($Reload,[string]$Path,$MonitorState,[scriptblock]$Log) {
     try {
         $bytes=Read-ConfigurationBytes $Path
-        $sha=[Security.Cryptography.SHA256]::Create()
-        try { $revision=[BitConverter]::ToString($sha.ComputeHash($bytes)).Replace('-','') } finally { $sha.Dispose() }
+        $revision=Get-ConfigurationHash $bytes
         if ($revision -ceq $Reload.Revision -or $revision -ceq $Reload.Attempted) { return $false }
         $Reload.Attempted=$revision
         $candidate=ConvertFrom-ConfigurationText ([Text.UTF8Encoding]::new($false,$true).GetString($bytes).TrimStart([char]0xFEFF))
         $Reload.Config=$candidate; $Reload.Revision=$revision; $Reload.Fallback=$false
-        $MonitorState.Stability.Key=''; $MonitorState.HealthKey=''; $MonitorState.Health=@{Health='Unknown';Failures=0}; $MonitorState.HealthChecked=-1.0e9
+        Reset-MonitorEvaluation $MonitorState
         $Reload.LastError=''
         & $Log 'INFO' '配置已热更新，将重新确认当前 Wi-Fi 和代理目标' @{ConfigRevision=$revision;WhitelistCount=$candidate.Whitelist.Count}
         return $true
@@ -38,7 +37,10 @@ function Get-ConfigurationStamp([string]$Path) {
     return ([string]$item.LastWriteTimeUtc.Ticks+':'+[string]$item.Length)
 }
 function New-MonitorState {
-    return @{ Stability=@{Key='';Since=0.0}; Health=@{Health='Unknown';Failures=0}; HealthKey=''; HealthChecked=-1.0e9; LastTick=-1.0; FastSince=-1.0; LastLog=''; LastError=''; LastErrorTime=-1.0e9; LastLogTime=-1.0e9; LastDiagnostic=''; LastWarning='' }
+    return @{ Stability=@{Key='';Since=0.0}; Health=@{Health='Unknown';Failures=0}; HealthKey=''; HealthChecked=-1.0e9; LastTick=-1.0; FastSince=-1.0; LastLog=''; LastError=''; LastErrorTime=-1.0e9; LastLogTime=-1.0e9; LastDiagnostic=''; LastWarning=''; Intent='' }
+}
+function Reset-MonitorEvaluation($State) {
+    $State.Stability.Key=''; $State.HealthKey=''; $State.Health=@{Health='Unknown';Failures=0}; $State.HealthChecked=-1.0e9; $State.FastSince=-1.0
 }
 function Get-ObservedTarget($Snapshot,$Config,[string]$Health='Unknown') {
     $target=Get-Target $Snapshot $Config $Health
@@ -60,13 +62,16 @@ function Get-HealthIdentity($Target) {
 
 # Dependencies are explicit scriptblocks, so tests exercise this same production cycle without Windows writes.
 function Invoke-AutomaticMonitorCycle($State,$Config,$Services,[double]$Now) {
-    if (& $Services.IsPaused) {
+    # Compatibility for isolated v3.1 callers. Production uses only the persisted configuration intent.
+    if ($Services.ContainsKey('IsPaused') -and (& $Services.IsPaused)) {
         & $Services.Heartbeat @{Target='Paused';SSID='';InterfaceGuid='';Gateway='';ActualEnabled=$null;Stable=$false;Reason='自动切换已暂停，当前手动代理保持不变'}
         return [pscustomobject]@{WaitMs=500;Stopped=$false;Paused=$true}
     }
-    return Invoke-MonitorCycle $State $Config $Services $Now
+    $intent='Monitoring'; if ($null -ne $Config.PSObject.Properties['ManagementIntent']) { $intent=$Config.ManagementIntent }
+    if ($State.Intent -cne $intent) { Reset-MonitorEvaluation $State; $State.Intent=$intent }
+    return Invoke-MonitorCycle $State $Config $Services $Now -ObserveOnly:($intent -ne 'Monitoring')
 }
-function Invoke-MonitorCycle($State,$Config,$Services,[double]$Now) {
+function Invoke-MonitorCycle($State,$Config,$Services,[double]$Now,[switch]$ObserveOnly) {
     $wait=[int]$Config.PollSeconds*1000
     $gapLimit=[Math]::Max(30,2*$Config.PollSeconds+3*$Config.DiagnosticTimeoutMilliseconds/1000.0+$Config.DebounceMilliseconds/1000.0)
     if ($State.LastTick -ge 0 -and $Now-$State.LastTick -gt $gapLimit) {
@@ -91,12 +96,13 @@ function Invoke-MonitorCycle($State,$Config,$Services,[double]$Now) {
     if (($actual.Flags -band 12) -ne 0 -or $actual.Pac) { $warning='检测到 PAC/自动检测；保持原设置，应用实际选路可能优先使用 PAC/WPAD' }
     if ($warning -cne $State.LastWarning) { if ($warning) { & $Services.Log 'WARN' $warning $null }; $State.LastWarning=$warning }
     $changed=$false
-    if ($stable -and (-not (Test-TargetMatches $actual $target) -or -not (Test-RegistryMatchesTarget $reg $target))) {
+    if (-not $ObserveOnly -and $stable -and (-not (Test-TargetMatches $actual $target) -or -not (Test-RegistryMatchesTarget $reg $target))) {
         if (& $Services.IsStopping) { return [pscustomobject]@{WaitMs=0;Stopped=$true} }
         $latest=Get-ObservedTarget (& $Services.ReadNetwork) $Config $State.Health.Health
         if ((Get-TargetIdentity $latest) -cne $identity) { $State.Stability.Key=''; throw '写入前网络状态已变化，取消更新并重新检测' }
         if (& $Services.IsStopping) { return [pscustomobject]@{WaitMs=0;Stopped=$true} }
         $applied=& $Services.Apply $target
+        if ($null -ne $applied.PSObject.Properties['Cancelled'] -and $applied.Cancelled) { Reset-MonitorEvaluation $State; return [pscustomobject]@{WaitMs=100;Stopped=$false} }
         $changed=$applied.Changed
         if ($changed) { & $Services.RecordApplied $applied.Snapshot }
         $actual=& $Services.ReadProxy
@@ -105,13 +111,20 @@ function Invoke-MonitorCycle($State,$Config,$Services,[double]$Now) {
     }
     $safeServer='<已有代理地址省略>'
     if ($actual.Server -match '^([0-9]{1,3}\.){3}[0-9]{1,3}:[0-9]{1,5}$' -or -not $actual.Server) { $safeServer=$actual.Server }
-    $data=[ordered]@{SSID=$target.SSID;InterfaceGuid=$target.Guid;Gateway=$target.Gateway;Target=$target.Action;ActualEnabled=$actual.Enable;ActualServer=$safeServer;Changed=$changed;Stable=$stable;Reason=$target.Reason}
+    $outcome=$target.Action; $reason=$target.Reason
+    if ($ObserveOnly) {
+        $outcome=$Config.ManagementIntent
+        $reason='自动切换已暂停，当前手动代理保持不变'
+        if ($outcome -eq 'Direct') { $reason='已选择直连；自动切换保持暂停。若其他程序重新开启代理，本工具不会覆盖其修改' }
+        if (-not $Config.SetupComplete) { $outcome='SetupRequired'; $reason='请完成首次设置并确认后开启自动切换' }
+    }
+    $data=[ordered]@{SSID=$target.SSID;InterfaceGuid=$target.Guid;Gateway=$target.Gateway;NetworkKind=$snapshot.Kind;Target=$outcome;RuleAction=$target.Action;ActualEnabled=$actual.Enable;ActualServer=$safeServer;ProxyFlags=$actual.Flags;Changed=$changed;Stable=$stable;Reason=$reason;RuleReason=$target.Reason;Warning=$warning}
     & $Services.Heartbeat $data
     $signature=@($data.SSID,$data.InterfaceGuid,$data.Gateway,$data.Target,$data.ActualEnabled,$data.ActualServer,$data.Stable,$data.Reason) | ConvertTo-Json -Compress
     if ($changed -or $signature -cne $State.LastLog -or ($target.Action -eq 'Keep' -and $Now-$State.LastLogTime -ge 300)) {
         & $Services.Log 'INFO' '网络与代理状态' $data; $State.LastLog=$signature; $State.LastLogTime=$Now
     }
-    if ($stable -and $State.LastError) {
+    if ($stable -and -not $ObserveOnly -and $State.LastError) {
         & $Services.Log 'INFO' '检测恢复，当前代理已与稳定目标一致' $null
         $State.LastError=''
     }
@@ -121,7 +134,7 @@ function Invoke-MonitorCycle($State,$Config,$Services,[double]$Now) {
         if ($target.Action -ne 'Keep') { $wait=[Math]::Min($wait,[int]$Config.DebounceMilliseconds) }
     } else { $State.FastSince=-1.0 }
     # Run diagnostics only after stable confirmation/application; Strict must not wait on a probe.
-    if ($stable -and $base.Action -eq 'Enable' -and $Config.Diagnostics -ne 'None' -and $Now-$State.HealthChecked -ge $Config.DiagnosticIntervalSeconds -and -not (& $Services.IsStopping)) {
+    if ($stable -and $base.Action -eq 'Enable' -and (-not $ObserveOnly -or ($actual.Enable -and $actual.Server -ceq $base.Server)) -and $Config.Diagnostics -ne 'None' -and $Now-$State.HealthChecked -ge $Config.DiagnosticIntervalSeconds -and -not (& $Services.IsStopping)) {
         $probe=& $Services.Probe $target.Gateway $Config
         $after=Get-ObservedTarget (& $Services.ReadNetwork) $Config
         if ($after.Action -eq 'Enable' -and (Get-HealthIdentity $after) -ceq $State.HealthKey) {

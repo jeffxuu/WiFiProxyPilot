@@ -34,7 +34,7 @@ function Install-DesktopFiles([string]$Root,[string]$SourceExe) {
     if (-not (Test-Path -LiteralPath $SourceExe -PathType Leaf) -or [IO.Path]::GetExtension($SourceExe) -ine '.exe') { throw '桌面 EXE 文件不存在' }
     $old=Read-DesktopInstall $Root; Assert-DesktopRegistration $Root $old
     $hash=(Get-FileHash -LiteralPath $SourceExe -Algorithm SHA256).Hash.ToUpperInvariant()
-    $rel='app/3.1.0-'+$hash.Substring(0,12)+'/WiFiProxySwitcher.exe'; $dest=Join-Path $Root $rel
+    $rel='app/3.2.0-'+$hash.Substring(0,12)+'/WiFiProxySwitcher.exe'; $dest=Join-Path $Root $rel
     Assert-PlainPath $dest
     if (Test-Path -LiteralPath $dest) {
         if ((Get-FileHash -LiteralPath $dest -Algorithm SHA256).Hash -cne $hash) { throw '版本目录已被其他文件占用，拒绝覆盖' }
@@ -54,12 +54,12 @@ function Install-DesktopFiles([string]$Root,[string]$SourceExe) {
 function Register-DesktopEntries([string]$Root,[string]$dest) {
     $key=[Microsoft.Win32.Registry]::CurrentUser.CreateSubKey($script:DesktopUninstallKey)
     try {
-        foreach ($pair in @(@('DisplayName','Wi-Fi 智能代理切换'),@('DisplayVersion','3.1.0'),@('Publisher','WiFiProxySwitcher'),@('OwnerSid',(Get-UserSid)),@('InstallLocation',$Root),@('DisplayIcon',$dest),@('UninstallString',('"'+$dest+'" /uninstall')), @('QuietUninstallString',('"'+$dest+'" /uninstall /quiet')))) { $key.SetValue($pair[0],$pair[1],[Microsoft.Win32.RegistryValueKind]::String) }
+        foreach ($pair in @(@('DisplayName','WiFi Proxy Pilot'),@('DisplayVersion','3.2.0-beta.1'),@('Publisher','WiFi Proxy Pilot contributors'),@('OwnerSid',(Get-UserSid)),@('InstallLocation',$Root),@('DisplayIcon',$dest),@('UninstallString',('"'+$dest+'" /uninstall')), @('QuietUninstallString',('"'+$dest+'" /uninstall /quiet')))) { $key.SetValue($pair[0],$pair[1],[Microsoft.Win32.RegistryValueKind]::String) }
         $key.SetValue('NoModify',1,[Microsoft.Win32.RegistryValueKind]::DWord); $key.SetValue('NoRepair',1,[Microsoft.Win32.RegistryValueKind]::DWord)
     } finally { $key.Dispose() }
     $shortcut=Get-DesktopShortcut; [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($shortcut)) | Out-Null
     $shell=New-Object -ComObject WScript.Shell
-    try { $link=$shell.CreateShortcut($shortcut); try { $link.TargetPath=$dest; $link.WorkingDirectory=[IO.Path]::GetDirectoryName($dest); $link.Description='Wi-Fi 智能代理切换'; $link.Save() } finally { [Runtime.InteropServices.Marshal]::FinalReleaseComObject($link) | Out-Null } }
+    try { $link=$shell.CreateShortcut($shortcut); try { $link.TargetPath=$dest; $link.WorkingDirectory=[IO.Path]::GetDirectoryName($dest); $link.Description='WiFi Proxy Pilot — Wi-Fi 智能代理助手'; $link.Save() } finally { [Runtime.InteropServices.Marshal]::FinalReleaseComObject($link) | Out-Null } }
     finally { [Runtime.InteropServices.Marshal]::FinalReleaseComObject($shell) | Out-Null }
 }
 function Remove-DesktopFiles($Manifest) {

@@ -19,7 +19,7 @@ internal sealed class AppController : IDisposable
         var asm = Assembly.GetExecutingAssembly();
         using var zip = asm.GetManifestResourceStream("payload.zip") ?? throw new InvalidDataException("内嵌脚本包缺失");
         using var manifest = asm.GetManifestResourceStream("payload.manifest.json") ?? throw new InvalidDataException("内嵌校验清单缺失");
-        var cache = new PayloadCache(zip, manifest, Path.Combine(ControlDir, "packages"), "3.1.0");
+        var cache = new PayloadCache(zip, manifest, Path.Combine(ControlDir, "packages"), "3.2.0-beta.1");
         StartupMetrics.Value("CacheHit", cache.Hit);
         StartupMetrics.Value("ExtractMs", cache.ExtractMilliseconds); StartupMetrics.Value("VerifyMs", cache.VerifyMilliseconds);
         StartupMetrics.Mark("PayloadReady");
@@ -44,13 +44,14 @@ internal sealed class AppController : IDisposable
     {
         if (TestRoot != null) throw new InvalidOperationException("隔离验证模式禁止代理、任务和安装写入");
         SessionGuard.Validate(); payload.Value.Verify();
-        if (options.Command is "pause" or "resume" && InstalledRoot() is string installed && !File.ReadAllText(Path.Combine(installed, "ProxyWatcher.ps1")).Contains("Update-MonitorConfiguration", StringComparison.Ordinal))
+        if (options.Command is "pause" or "resume" or "direct" or "check" && InstalledRoot() is string installed && !File.ReadAllText(Path.Combine(installed, "ProxyWatcher.ps1")).Contains("ManagementIntent", StringComparison.Ordinal))
             throw new InvalidOperationException("当前后台引擎仍为旧版本。请先在设置的高级操作中修复安装，保留现有名单与原始代理备份。");
         string resultPath = Path.Combine(ControlDir, "result-" + Guid.NewGuid().ToString("N") + ".json");
         var args = new List<string> { "-Action", options.Command, "-Quiet", "-ResultPath", resultPath };
         string? root = options.InstallDir ?? InstalledRoot();
         if (root != null) { args.Add("-InstallDir"); args.Add(root); }
         if (options.Command == "install") { args.Add("-DesktopSource"); args.Add(Environment.ProcessPath!); }
+        if (options.SetupConfigPath != null) { args.Add("-SetupConfigPath"); args.Add(options.SetupConfigPath); }
         if (options.Force) args.Add("-ForceRestore"); if (options.Keep) args.Add("-KeepCurrentProxy");
         try
         {

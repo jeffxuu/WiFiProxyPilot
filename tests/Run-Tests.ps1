@@ -1,6 +1,6 @@
 ﻿#requires -Version 5.1
 [CmdletBinding()]
-param([string]$ResultPath='')
+param([string]$ResultPath='', [string]$NameFilter='')
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
 . (Join-Path $root 'lib/Core.ps1')
@@ -8,6 +8,10 @@ $root=Split-Path $PSScriptRoot -Parent
 . (Join-Path $root 'lib/Lifecycle.ps1')
 . (Join-Path $root 'lib/Monitor.ps1')
 $config=Read-Configuration (Join-Path $root 'config.json')
+# Rules below are explicit simulated user preferences, independent of safe first-run defaults.
+$config.Whitelist=@('MC-Office','Meituan')
+$config | Add-Member NoteProperty ManagementIntent 'Monitoring' -Force
+$config | Add-Member NoteProperty SetupComplete $true -Force
 $script:results=[Collections.Generic.List[object]]::new()
 function Check([bool]$Condition,[string]$Message='断言失败') { if (-not $Condition) { throw $Message } }
 function Remove-TestFixture([string]$Path) {
@@ -20,6 +24,7 @@ function Remove-TestFixture([string]$Path) {
     }
 }
 function Case([string]$Name,[scriptblock]$Body) {
+    if ($NameFilter -and $Name -notmatch $NameFilter) { return }
     $caseClock=[Diagnostics.Stopwatch]::StartNew()
     try { & $Body; $script:results.Add([pscustomobject]@{ Name=$Name; Passed=$true; Error=''; DurationMilliseconds=$caseClock.ElapsedMilliseconds }); Write-Host ('PASS '+$Name) }
     catch { $script:results.Add([pscustomobject]@{ Name=$Name; Passed=$false; Error=$_.Exception.Message; Stack=$_.ScriptStackTrace; DurationMilliseconds=$caseClock.ElapsedMilliseconds }); Write-Host ('FAIL '+$Name+': '+$_.Exception.Message+'; '+$_.ScriptStackTrace) }
@@ -238,6 +243,7 @@ Case '配置错误被拒绝，不进行系统写入' {
 . (Join-Path $PSScriptRoot 'TaskOwnership.Tests.ps1')
 . (Join-Path $PSScriptRoot 'Productization.Tests.ps1')
 . (Join-Path $PSScriptRoot 'V31.Tests.ps1')
+. (Join-Path $PSScriptRoot 'V32.Engine.Tests.ps1')
 $failed=@($script:results | Where-Object { -not $_.Passed }).Count
 $report=[pscustomobject]@{ Time=[DateTimeOffset]::Now.ToString('o'); Platform=[Environment]::OSVersion.Platform.ToString(); PowerShell=$PSVersionTable.PSVersion.ToString(); Total=$script:results.Count; Passed=$script:results.Count-$failed; Failed=$failed; Results=$script:results.ToArray(); RealWindowsIntegration='NOT RUN by this simulation suite' }
 if ($ResultPath) { Write-JsonAtomic ([IO.Path]::GetFullPath($ResultPath)) $report }

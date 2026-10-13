@@ -1,13 +1,14 @@
 ﻿#requires -Version 5.1
 [CmdletBinding()]
 param(
-    [ValidateSet('Install','Start','Stop','Uninstall','Restore','Status','Check','Pause','Resume','Settings')][string]$Action='Status',
+    [ValidateSet('Install','Start','Stop','Uninstall','Restore','Status','Check','Pause','Resume','Direct','Settings')][string]$Action='Status',
     [string]$InstallDir='',
     [switch]$ForceRestore,
     [switch]$KeepCurrentProxy,
     [switch]$DeleteLogs,
     [switch]$Quiet,
     [string]$DesktopSource='',
+    [string]$SetupConfigPath='',
     [string]$ResultPath=''
 )
 $ErrorActionPreference='Stop'
@@ -47,7 +48,7 @@ try {
             if (Test-Path -LiteralPath (Join-Path $InstallDir 'state\installation.json')) { $previous=Read-Install $InstallDir }
             elseif (@(Get-ChildItem -LiteralPath $InstallDir -Force).Count) { throw '目标目录不是空目录，拒绝覆盖用户文件' }
         }
-        $manifest=Install-ProductFiles $source $InstallDir $previous
+        $manifest=Install-ProductFiles $source $InstallDir $previous $SetupConfigPath
         if ($DesktopSource) { Install-DesktopFiles $InstallDir $DesktopSource | Out-Null }
         $k=[Microsoft.Win32.Registry]::CurrentUser.CreateSubKey($script:Pointer)
         try { $k.SetValue('InstallDir',$InstallDir,[Microsoft.Win32.RegistryValueKind]::String) } finally { $k.Dispose() }
@@ -67,26 +68,32 @@ try {
         Remove-DesktopFiles (Read-DesktopInstall $root)
     } else {
         $manifest=Read-Install $root
+        if ($Action -in @('Pause','Resume','Direct','Start','Check')) {
+            $engine=Join-Path $root 'ProxyWatcher.ps1'; Assert-PlainPath $engine
+            if (-not [IO.File]::ReadAllText($engine).Contains('$script:EngineProtocol=2')) { throw '需要升级后台组件：旧引擎不支持持久管理意图。请先修复/升级安装，现有规则与最初代理备份将保留' }
+        }
         switch ($Action) {
-            'Pause' { Write-JsonAtomic (Join-Path $root 'state/pause.request') @{Time=[DateTimeOffset]::Now.ToString('o')}; Write-Output '自动切换已暂停；当前手动代理保持不变，未执行恢复' }
+            'Pause' { Set-ManagementIntent $root 'Paused' | Out-Null; Write-Output '自动切换已暂停；当前手动代理可能继续生效。退出、锁屏、注销和重启后保持暂停' }
             'Resume' {
-                $pause=Join-Path $root 'state/pause.request'; Assert-PlainPath $pause
-                if (Test-Path -LiteralPath $pause) { Remove-Item -LiteralPath $pause -Force }
+                Set-ManagementIntent $root 'Monitoring' | Out-Null
                 $w=New-UserMutex 'Watcher'; $free=Enter-Mutex $w; if ($free) { $w.ReleaseMutex() }; $w.Dispose()
                 if ($free) { Start-OwnedWatcher $manifest }
-                Write-JsonAtomic (Join-Path $root 'state/check.request') @{Time=[DateTimeOffset]::Now.ToString('o')}
+                Write-JsonAtomic (Join-Path $root 'state/check.request') @{Time=[DateTimeOffset]::Now.ToString('o');RequestId=[Guid]::NewGuid().ToString('N')}
                 Apply-LoginSettings $root $manifest
             }
+            'Direct' { Set-OwnedDirectMode $manifest }
             'Settings' { Apply-LoginSettings $root $manifest }
             'Check' {
                 $w=New-UserMutex 'Watcher'; $free=Enter-Mutex $w; if ($free) { $w.ReleaseMutex() }; $w.Dispose()
                 if ($free) { throw '请先启动监控，再立即检测' }
-                Write-JsonAtomic (Join-Path $root 'state/check.request') @{Time=[DateTimeOffset]::Now.ToString('o')}
+                $request=[Guid]::NewGuid().ToString('N')
+                Write-JsonAtomic (Join-Path $root 'state/check.request') @{Time=[DateTimeOffset]::Now.ToString('o');RequestId=$request}
+                $result.Data=@{RequestId=$request}
                 Write-Output '已请求立即检测；稳定性检查和 Strict/Safe 规则保持不变'
             }
-            'Start' { Start-OwnedWatcher $manifest; Apply-LoginSettings $root $manifest }
-            'Stop' { Stop-OwnedWatcher $manifest; Write-Output '监控与登录任务已停止/禁用；代理保持当前状态，恢复请用 RestoreProxy.bat' }
-            'Restore' { Stop-OwnedWatcher $manifest; Restore-OwnedProxy $manifest -Force:$ForceRestore }
+            'Start' { Set-ManagementIntent $root 'Monitoring' | Out-Null; Start-OwnedWatcher $manifest; Apply-LoginSettings $root $manifest }
+            'Stop' { Set-ManagementIntent $root 'Paused' | Out-Null; Stop-OwnedWatcher $manifest; Write-Output '监控与登录任务已停止/禁用；已保存暂停意图，代理保持当前状态' }
+            'Restore' { Set-ManagementIntent $root 'Paused' | Out-Null; Stop-OwnedWatcher $manifest; Restore-OwnedProxy $manifest -Force:$ForceRestore }
             'Status' {
                 $task=Get-OwnedTask $manifest
                 $actual=Read-SystemProxy; $server='<已有地址省略>'

@@ -7,14 +7,14 @@ using System.Text.Json;
 namespace WiFiProxySwitcher.Core;
 
 public sealed record Options(string Command, bool Quiet = false, bool Force = false, bool Keep = false,
-    string? Output = null, string? InstallDir = null, int WorkerPid = 0, long WorkerStart = 0)
+    string? Output = null, string? InstallDir = null, int WorkerPid = 0, long WorkerStart = 0, string? SetupConfigPath = null)
 {
     public static Options Parse(string[] args)
     {
         if (args.Length == 0) return new("gui");
         var command = args[0].ToLowerInvariant();
-        if (!new[] { "/install", "/uninstall", "/restore", "/status", "/start", "/stop", "/check", "/pause", "/resume", "/settings", "/tray", "/benchmark", "/self-test" }.Contains(command))
-            throw new ArgumentException("未知命令。支持 /install /uninstall /restore /status /start /stop /check。");
+        if (!new[] { "/install", "/uninstall", "/restore", "/status", "/start", "/stop", "/check", "/pause", "/resume", "/direct", "/settings", "/tray", "/benchmark", "/self-test" }.Contains(command))
+            throw new ArgumentException("未知命令。支持 /install /uninstall /restore /status /start /stop /check /pause /resume /direct。");
         var o = new Options(command[1..]);
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         for (int i = 1; i < args.Length; i++)
@@ -29,6 +29,7 @@ public sealed record Options(string Command, bool Quiet = false, bool Force = fa
                 "/keep-current" when o.Command == "uninstall" => o with { Keep = true },
                 "/output" when o.Command is "status" or "self-test" or "benchmark" => o with { Output = Value() },
                 "/install-dir" when o.Command == "install" => o with { InstallDir = Value() },
+                "/setup-config" when o.Command == "install" => o with { SetupConfigPath = Value() },
                 "/worker" when o.Command == "uninstall" => o with { WorkerPid = int.Parse(Value()), WorkerStart = long.Parse(Value()) },
                 _ => throw new ArgumentException("此命令不支持参数: " + flag)
             };

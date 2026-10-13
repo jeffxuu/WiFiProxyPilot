@@ -1,5 +1,8 @@
 {
-  "Whitelist": ["MC-Office", "Meituan"],
+  "SchemaVersion": 2,
+  "ManagementIntent": "Paused",
+  "SetupComplete": false,
+  "Whitelist": [],
   "Port": 7890,
   "Mode": "Strict",
   "PollSeconds": 5,

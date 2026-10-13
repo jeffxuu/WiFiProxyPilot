@@ -8,10 +8,25 @@ function Read-ConfigurationBytes([string]$Path) {
 }
 function Read-Configuration([string]$Path) {
     $bytes=Read-ConfigurationBytes $Path
-    return ConvertFrom-ConfigurationText ([Text.UTF8Encoding]::new($false,$true).GetString($bytes).TrimStart([char]0xFEFF))
+    $text=[Text.UTF8Encoding]::new($false,$true).GetString($bytes).TrimStart([char]0xFEFF)
+    $raw=$text | ConvertFrom-Json
+    $c=ConvertFrom-ConfigurationText $text
+    # The old marker is consulted only while migrating a configuration without a persisted intent.
+    if ($null -eq $raw.PSObject.Properties['ManagementIntent'] -and (Test-Path -LiteralPath (Join-Path (Split-Path $Path -Parent) 'state/pause.request'))) { $c.ManagementIntent='Paused' }
+    return $c
 }
 function ConvertFrom-ConfigurationText([string]$Text) {
     $c = $Text | ConvertFrom-Json
+    $schema=1
+    if ($null -ne $c.PSObject.Properties['SchemaVersion']) {
+        if (-not [int]::TryParse([string]$c.SchemaVersion,[ref]$schema) -or $schema -notin @(1,2)) { throw '配置版本不受支持，请升级后台组件' }
+    }
+    if ($schema -eq 2 -and ($null -eq $c.PSObject.Properties['ManagementIntent'] -or $null -eq $c.PSObject.Properties['SetupComplete'])) { throw '配置缺少管理意图或首次设置确认' }
+    if ($null -eq $c.PSObject.Properties['ManagementIntent']) { $c | Add-Member NoteProperty ManagementIntent 'Monitoring' }
+    if ($null -eq $c.PSObject.Properties['SetupComplete']) { $c | Add-Member NoteProperty SetupComplete $true }
+    if ($c.ManagementIntent -cnotin @('Monitoring','Paused','Direct') -or $c.SetupComplete -isnot [bool]) { throw '管理意图或首次设置确认无效' }
+    if (-not $c.SetupComplete -and $c.ManagementIntent -ne 'Paused') { throw '首次设置完成前不能开启自动切换或改变代理' }
+    $c | Add-Member NoteProperty SchemaVersion 2 -Force
     foreach ($name in @('Whitelist','Port','Mode','PollSeconds','DebounceMilliseconds','DisconnectConfirmSeconds','RetrySeconds','FastRetryWindowSeconds','PreferredInterfaceGuid','Diagnostics','DiagnosticIntervalSeconds','DiagnosticTimeoutMilliseconds','HttpProbeUrl','SafeFailureThreshold','LogMaxBytes','LogArchives')) {
         if ($null -eq $c.PSObject.Properties[$name]) { throw "配置缺少字段: $name" }
     }
@@ -21,9 +36,9 @@ function ConvertFrom-ConfigurationText([string]$Text) {
         $c.($rule[0])=$n
     }
     if ($c.Mode -cnotin @('Strict','Safe') -or $c.Diagnostics -cnotin @('None','Tcp','Http')) { throw '模式配置错误' }
-    if ($c.Whitelist -isnot [Array] -or @($c.Whitelist | Where-Object { $_ -isnot [string] -or [string]::IsNullOrEmpty($_) }).Count) { throw '白名单必须是非空 SSID 字符串数组' }
+    if ($c.Whitelist -isnot [Array] -or @($c.Whitelist | Where-Object { $_ -isnot [string] -or [string]::IsNullOrEmpty($_) }).Count) { throw 'Wi-Fi 规则必须是 SSID 字符串数组（允许空列表）' }
     $names=[Collections.Generic.List[string]]::new()
-    foreach ($ssid in @('MC-Office','Meituan')+@($c.Whitelist)) {
+    foreach ($ssid in @($c.Whitelist)) {
         if ([Text.UTF8Encoding]::new($false,$true).GetByteCount($ssid) -gt 32 -or $ssid -match '[\x00-\x1f\x7f-\x9f]') { throw 'SSID 应为 1–32 个 UTF-8 字节，不能含控制字符' }
         if (-not @($names | Where-Object { [string]::Equals($_,$ssid,[StringComparison]::OrdinalIgnoreCase) }).Count) { $names.Add($ssid) }
     }
@@ -65,8 +80,8 @@ function Get-Target($Snapshot, $Config, [string]$Health = 'Unknown') {
     $n = $items[0]
     $t = [pscustomobject]@{ Action='Keep'; Server=''; SSID=$n.SSID; Guid=$n.Guid; Gateway=$n.Gateway; Reason='' }
     $matchable=$true; if ($null -ne $n.PSObject.Properties['Matchable']) { $matchable=$n.Matchable }
-    foreach ($ssid in @('MC-Office','Meituan')+@($Config.Whitelist)) {
-        if ($matchable -and [string]::Equals($ssid,$n.SSID,[StringComparison]::OrdinalIgnoreCase)) { $t.Action='Disable'; $t.Reason='精确匹配代理关闭白名单'; return $t }
+    foreach ($ssid in @($Config.Whitelist)) {
+        if ($matchable -and [string]::Equals($ssid,$n.SSID,[StringComparison]::OrdinalIgnoreCase)) { $t.Action='Disable'; $t.Reason='精确匹配免代理 Wi-Fi 规则'; return $t }
     }
     if (-not $n.Ready -or -not (Test-GatewayIPv4 $n.Gateway)) {
         $t.Reason='IPv4 网关尚未就绪或路由歧义'
@@ -74,7 +89,7 @@ function Get-Target($Snapshot, $Config, [string]$Health = 'Unknown') {
         return $t
     }
     if ($Config.Mode -eq 'Safe' -and $Health -eq 'Unavailable') { $t.Action='Disable'; $t.Reason='Safe: 代理连续检测失败，恢复直连并继续检测'; return $t }
-    $t.Action='Enable'; $t.Server=('{0}:{1}' -f $n.Gateway,$Config.Port); $t.Reason='非白名单 Wi-Fi 的当前 IPv4 网关'; return $t
+    $t.Action='Enable'; $t.Server=('{0}:{1}' -f $n.Gateway,$Config.Port); $t.Reason='当前 Wi-Fi 未命中免代理规则，使用其 IPv4 网关'; return $t
 }
 
 function Add-LocalBypass([string]$Value) {
@@ -156,13 +171,13 @@ function Update-ProxyHealth($State,[string]$Result,[int]$Threshold) {
     }
 }
 
-function Write-JsonAtomic([string]$Path,$Value) {
+function Write-JsonAtomic([string]$Path,$Value,[string]$BackupPath='') {
     $tmp = $Path + '.tmp.' + [Guid]::NewGuid().ToString('N')
     try {
         [IO.File]::WriteAllText($tmp,($Value | ConvertTo-Json -Depth 12),[Text.UTF8Encoding]::new($true))
         for ($attempt=0;$attempt -lt 6;$attempt++) {
             try {
-                if (Test-Path -LiteralPath $Path) { [IO.File]::Replace($tmp,$Path,[NullString]::Value) } else { [IO.File]::Move($tmp,$Path) }
+                if (Test-Path -LiteralPath $Path) { if ($BackupPath) { [IO.File]::Replace($tmp,$Path,$BackupPath) } else { [IO.File]::Replace($tmp,$Path,[NullString]::Value) } } else { [IO.File]::Move($tmp,$Path) }
                 break
             } catch {
                 # Retry a transient sharing/removal failure without deleting or truncating the valid destination.
@@ -171,6 +186,29 @@ function Write-JsonAtomic([string]$Path,$Value) {
             }
         }
     } finally { if (Test-Path -LiteralPath $tmp) { Remove-Item -LiteralPath $tmp -Force } }
+}
+
+function Get-ConfigurationHash([byte[]]$Bytes) {
+    $sha=[Security.Cryptography.SHA256]::Create()
+    try { return [BitConverter]::ToString($sha.ComputeHash($Bytes)).Replace('-','') } finally { $sha.Dispose() }
+}
+function New-ConfigurationMutex([string]$Path) {
+    # Shared verbatim with ConfigurationStore.LockName; the interactive task and GUI share a session.
+    $key=[Text.Encoding]::UTF8.GetBytes([IO.Path]::GetFullPath($Path).ToUpperInvariant())
+    return [Threading.Mutex]::new($false,('Local\WiFiConfig-'+(Get-ConfigurationHash $key)))
+}
+function Set-ManagementIntent([string]$Root,[ValidateSet('Monitoring','Paused','Direct')][string]$Intent) {
+    $path=Join-Path $Root 'config.json'; Assert-PlainPath $path
+    $gate=New-ConfigurationMutex $path; $taken=$false
+    try {
+        $taken=Enter-Mutex $gate 5000
+        if (-not $taken) { throw '配置正在被其他窗口保存，请稍后重试' }
+        $c=Read-Configuration $path
+        if (-not $c.SetupComplete -and $Intent -ne 'Paused') { throw '请先完成首次设置并确认 Windows 手动代理变更' }
+        $c.ManagementIntent=$Intent
+        Write-JsonAtomic $path $c ($path+'.previous')
+        return $c
+    } finally { if ($taken) { $gate.ReleaseMutex() }; $gate.Dispose() }
 }
 
 function Write-SwitchLog([string]$Root,$Config,[string]$Level,[string]$Message,$Data) {

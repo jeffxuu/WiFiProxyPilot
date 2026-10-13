@@ -1,15 +1,17 @@
 ﻿# Loaded by Run-Tests.ps1; every network, scheduler and proxy action remains simulated.
 . (Join-Path $root 'lib/Core.ps1')
 . (Join-Path $root 'lib/Monitor.ps1')
-Case 'V31 内置规则无法由空用户名单或直接配置删除' {
+Case 'V31 所有旧名单均可删除，空用户名单不会重新添加旧规则' {
     $c=Clone-Config; $c.Whitelist=@()
-    foreach ($name in @('MC-Office','meituan')) { Check ((Get-Target (Snapshot (Link $name)) $c).Action -eq 'Disable') }
+    foreach ($name in @('MC-Office','meituan')) { Check ((Get-Target (Snapshot (Link $name)) $c).Action -eq 'Enable') }
     Check ((Get-Target (Snapshot (Link 'Meituan-Guest')) $c).Action -eq 'Enable')
+    $v=ConvertFrom-ConfigurationText ($c | ConvertTo-Json)
+    Check ($v.Whitelist.Count -eq 0)
 }
 Case 'V31 SSID UTF-8 字节长度、中文、空格和 Ordinal 去重' {
     $c=Clone-Config; $c.Whitelist=@('中文网络',' Office ','xiaomi','XiaoMi')
     $v=ConvertFrom-ConfigurationText ($c | ConvertTo-Json)
-    Check ($v.Whitelist.Count -eq 5 -and $v.Whitelist -contains ' Office ')
+    Check ($v.Whitelist.Count -eq 3 -and $v.Whitelist -contains ' Office ')
     foreach ($invalid in @('',('a'*33),('中'*11),"a`nb")) { $c.Whitelist=@($invalid); $rejected=$false; try { ConvertFrom-ConfigurationText ($c | ConvertTo-Json) | Out-Null } catch { $rejected=$true }; Check $rejected }
 }
 Case 'V31 配置热更新立即改变当前 XiaoMi 目标，不安装/重启任务' {
@@ -25,8 +27,9 @@ Case 'V31 配置热更新立即改变当前 XiaoMi 目标，不安装/重启任�
         Check ((Get-Target (Snapshot (Link 'XiaoMi')) $r.Config).Action -eq 'Disable')
         $r.Config.Diagnostics='None'; Cycle $s $services 2 $r.Config; Cycle $s $services 3 $r.Config; Check (-not $script:h.Actual.Enable)
         Check ((Get-Target (Snapshot (Link 'Other' '192.168.1.1')) $r.Config).Server -eq '192.168.1.1:7890')
-        $c.Whitelist=@('MC-Office','Meituan'); Write-JsonAtomic $p $c; Update-MonitorConfiguration $r $p $s {param($level,$message,$data)} | Out-Null
+        $c.Whitelist=@(); Write-JsonAtomic $p $c; Update-MonitorConfiguration $r $p $s {param($level,$message,$data)} | Out-Null
         Check ((Get-Target (Snapshot (Link 'XiaoMi')) $r.Config).Action -eq 'Enable')
+        Check ($r.Config.Whitelist.Count -eq 0 -and (Get-Target (Snapshot (Link 'MC-Office')) $r.Config).Action -eq 'Enable')
         $r.Config.Diagnostics='None'; Cycle $s $services 4 $r.Config; Cycle $s $services 5 $r.Config; Check ($script:h.Actual.Enable -and $script:h.Actual.Server -eq '10.0.0.1:7890')
     } finally { Remove-TestFixture $dir }
 }
@@ -45,8 +48,8 @@ Case 'V31 多次快速修改最后一次有效配置生效并清除旧诊断/防
     $dir=Join-Path ([IO.Path]::GetTempPath()) ('WiFiV31-'+[Guid]::NewGuid().ToString('N'));[IO.Directory]::CreateDirectory($dir) | Out-Null
     $p=Join-Path $dir 'config.json'
     try { $c=Clone-Config;Write-JsonAtomic $p $c;$r=New-ConfigurationReloadState $p;$s=New-MonitorState;$s.Stability.Key='old';$s.Health.Health='Unavailable';$s.HealthKey='old'
-        foreach($i in 1..30){$c.Whitelist=@('SSID-'+$i);Write-JsonAtomic $p $c};Check (Update-MonitorConfiguration $r $p $s {param($level,$message,$data)})
-        Check ($r.Config.Whitelist -contains 'SSID-30' -and $s.Stability.Key -eq '' -and $s.Health.Health -eq 'Unknown')
+        foreach($i in 1..8){$c.Whitelist=@('SSID-'+$i);Write-JsonAtomic $p $c};Check (Update-MonitorConfiguration $r $p $s {param($level,$message,$data)})
+        Check ($r.Config.Whitelist -contains 'SSID-8' -and $s.Stability.Key -eq '' -and $s.Health.Health -eq 'Unknown')
     } finally {Remove-TestFixture $dir}
 }
 Case 'V31 保存中断遗留临时文件不影响有效配置，重新登录可从有效备份恢复' {
