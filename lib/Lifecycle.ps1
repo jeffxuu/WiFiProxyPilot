@@ -124,8 +124,10 @@ function New-InstallManifest([string]$Root,[string]$FilesRoot,$Previous,[switch]
 }
 function Copy-UpgradeFileAtomic([string]$Source,[string]$Destination) {
     Assert-PlainPath $Source; Assert-PlainPath $Destination
-    [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($Destination)) | Out-Null
-    $temporary=$Destination+'.upgrade-tmp.'+[Guid]::NewGuid().ToString('N')
+    $directory=[IO.Path]::GetDirectoryName($Destination)
+    [IO.Directory]::CreateDirectory($directory) | Out-Null
+    # Keep the temporary name independent of long payload names under upgrade backups.
+    $temporary=Join-Path $directory ('.wpp-'+[Guid]::NewGuid().ToString('N')+'.tmp')
     try {
         $inputStream=[IO.File]::OpenRead($Source)
         $outputStream=$null
@@ -134,8 +136,22 @@ function Copy-UpgradeFileAtomic([string]$Source,[string]$Destination) {
             $inputStream.CopyTo($outputStream); $outputStream.Flush($true)
         } finally { if ($null -ne $outputStream) { $outputStream.Dispose() }; $inputStream.Dispose() }
         if ((Get-FileHash -LiteralPath $temporary -Algorithm SHA256).Hash -cne (Get-FileHash -LiteralPath $Source -Algorithm SHA256).Hash) { throw '升级文件复制校验失败' }
-        if (Test-Path -LiteralPath $Destination) { [IO.File]::Replace($temporary,$Destination,[NullString]::Value) }
-        else { [IO.File]::Move($temporary,$Destination) }
+        for ($attempt=0;$attempt -lt 8;$attempt++) {
+            try {
+                if (Test-Path -LiteralPath $Destination) { [IO.File]::Replace($temporary,$Destination,[NullString]::Value) }
+                else { [IO.File]::Move($temporary,$Destination) }
+                break
+            } catch {
+                $failure=$_.Exception
+                while ($null -ne $failure.InnerException) { $failure=$failure.InnerException }
+                $sharingViolation=$failure.HResult -in @(0x80070020,0x80070021)
+                # Sharing/lock violations are transient. Never delete the valid destination to retry.
+                if ($failure -is [IO.IOException] -and $sharingViolation -and $attempt -lt 7 -and (Test-Path -LiteralPath $temporary)) {
+                    Start-Sleep -Milliseconds (50*($attempt+1)); continue
+                }
+                throw [IO.IOException]::new(('升级原子替换失败: '+$Source+' -> '+$Destination+'；HResult=0x'+$failure.HResult.ToString('X8')+'；'+$failure.Message),$failure)
+            }
+        }
     } finally { if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary -Force } }
 }
 function Restore-UpgradeTaskState($Manifest,$TaskState,[bool]$WasEnabled,[bool]$WasRunning,[bool]$HadStopRequest) {

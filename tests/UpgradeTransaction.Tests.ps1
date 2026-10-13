@@ -28,7 +28,7 @@ function Start-ScheduledTask { param($TaskName,$TaskPath,$ErrorAction) $script:f
 function Copy-UpgradeFileAtomic([string]$Source,[string]$Destination) {
     $f=$script:fixture
     if ($f.Fault -eq 'stage' -and $Destination.Contains('.upgrade.') -and $Destination.EndsWith('Monitor.ps1') -and -not $f.Faulted) { $f.Faulted=$true; throw 'injected stage copy failure' }
-    if ($f.Fault -eq 'rollback' -and $Source.Contains('user-backups') -and $Destination -eq (Join-Path $f.Root 'Control.ps1')) { throw 'injected rollback failure' }
+    if ($f.Fault -eq 'rollback' -and $Source.Contains('user-backups') -and $Destination -eq (Join-Path $f.Root 'Control.ps1')) { $f.RollbackFaulted=$true; throw 'injected rollback failure' }
     & $copyImplementation $Source $Destination
     if ($f.Fault -in @('commit','rollback') -and $Destination -eq (Join-Path $f.Root 'lib/Monitor.ps1') -and -not $f.Faulted) { $f.Faulted=$true; throw 'injected failure after atomic payload replacement' }
 }
@@ -39,13 +39,13 @@ function Write-JsonAtomic([string]$Path,$Value,[string]$BackupPath='') {
     & $writeImplementation $Path $Value $BackupPath
 }
 function Enter-Mutex($Mutex,[int]$Milliseconds=0) {
-    if ($script:fixture.Fault -eq 'gate' -and $Milliseconds -eq 5000) { return $false }
+    if ($script:fixture.Fault -eq 'gate' -and $Milliseconds -eq 5000) { $script:fixture.Faulted=$true; return $false }
     return & $enterImplementation $Mutex $Milliseconds
 }
 function Hash([string]$Path) { if (Test-Path -LiteralPath $Path) { return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash }; return '<absent>' }
 function New-Fixture([string]$Fault,[string]$Intent='Paused') {
     $base=Join-Path ([IO.Path]::GetTempPath()) ('WiFiUpgradeTransaction-'+[Guid]::NewGuid().ToString('N'))
-    $script:fixture=@{Base=$base;Source=(Join-Path $base 'source');Root=(Join-Path $base 'installed');Task=$null;Stops=0;Starts=0;StartedIntent='';Fault='';Faulted=$false;Before=@{};Intent=$Intent}
+    $script:fixture=@{Base=$base;Source=(Join-Path $base 'source');Root=(Join-Path $base 'installed');Task=$null;Stops=0;Starts=0;StartedIntent='';Fault='';Faulted=$false;RollbackFaulted=$false;Before=@{};Intent=$Intent}
     foreach ($name in Get-DistributionFiles) {
         $path=Join-Path $script:fixture.Source $name
         [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($path)) | Out-Null
@@ -92,27 +92,27 @@ function Case([string]$Name,[scriptblock]$Body) {
 Case 'Upgrade stage failure leaves watcher/files untouched' {
     New-Fixture 'stage'; $failed=$false
     try { Install-ProductFiles $script:fixture.Source $script:fixture.Root $script:fixture.Manifest | Out-Null } catch { $failed=$true }
-    Assert $failed 'expected stage failure'; Assert ($script:fixture.Stops -eq 0) 'watcher stopped before verified staging'; Assert-RolledBack
+    Assert ($failed -and $script:fixture.Faulted) 'expected injected stage failure was not reached'; Assert ($script:fixture.Stops -eq 0) 'watcher stopped before verified staging'; Assert-RolledBack
 }
 Case 'Configuration gate contention leaves watcher/files untouched' {
     New-Fixture 'gate'; $failed=$false
     try { Install-ProductFiles $script:fixture.Source $script:fixture.Root $script:fixture.Manifest | Out-Null } catch { $failed=$true }
-    Assert $failed 'expected gate failure'; Assert ($script:fixture.Stops -eq 0) 'watcher stopped before taking gate'; Assert-RolledBack
+    Assert ($failed -and $script:fixture.Faulted) 'expected injected gate failure was not reached'; Assert ($script:fixture.Stops -eq 0) 'watcher stopped before taking gate'; Assert-RolledBack
 }
 Case 'Partial payload replacement rolls back bytes/task and legacy pause' {
     New-Fixture 'commit'; $failed=$false
     try { Install-ProductFiles $script:fixture.Source $script:fixture.Root $script:fixture.Manifest | Out-Null } catch { $failed=$true }
-    Assert $failed 'expected commit failure'; Assert-RolledBack; Assert ($script:fixture.Starts -eq 1 -and $script:fixture.StartedIntent -eq 'Paused') 'rollback restart changed pause intent'
+    Assert ($failed -and $script:fixture.Faulted) 'expected injected commit failure was not reached'; Assert-RolledBack; Assert ($script:fixture.Starts -eq 1 -and $script:fixture.StartedIntent -eq 'Paused') 'rollback restart changed pause intent'
 }
 Case 'Configuration failure restores complete payload and prior config' {
     New-Fixture 'config'; $failed=$false
     try { Install-ProductFiles $script:fixture.Source $script:fixture.Root $script:fixture.Manifest | Out-Null } catch { $failed=$true }
-    Assert $failed 'expected config failure'; Assert-RolledBack
+    Assert ($failed -and $script:fixture.Faulted) 'expected injected config failure was not reached'; Assert-RolledBack
 }
 Case 'Manifest failure preserves Direct intent and original backup' {
     New-Fixture 'manifest' 'Direct'; $failed=$false
     try { Install-ProductFiles $script:fixture.Source $script:fixture.Root $script:fixture.Manifest | Out-Null } catch { $failed=$true }
-    Assert $failed 'expected manifest failure'; Assert-RolledBack; Assert ($script:fixture.StartedIntent -eq 'Direct') 'rollback restart changed Direct intent'
+    Assert ($failed -and $script:fixture.Faulted) 'expected injected manifest failure was not reached'; Assert-RolledBack; Assert ($script:fixture.StartedIntent -eq 'Direct') 'rollback restart changed Direct intent'
 }
 Case 'Successful migration keeps rules/config ownership and full rollback backup' {
     New-Fixture ''; $updated=Install-ProductFiles $script:fixture.Source $script:fixture.Root $script:fixture.Manifest
@@ -128,10 +128,62 @@ Case 'Successful migration keeps rules/config ownership and full rollback backup
 Case 'Incomplete rollback retains recovery/stop protection and blocks startup' {
     New-Fixture 'rollback'; $failed=$false
     try { Install-ProductFiles $script:fixture.Source $script:fixture.Root $script:fixture.Manifest | Out-Null } catch { $failed=$true }
-    Assert $failed 'expected rollback failure'
+    Assert ($failed -and $script:fixture.Faulted -and $script:fixture.RollbackFaulted) 'expected injected rollback failure was not reached'
     Assert ((Test-Path -LiteralPath (Join-Path $script:fixture.Root 'state/upgrade-recovery.json')) -and (Test-Path -LiteralPath (Join-Path $script:fixture.Root 'state/stop.request'))) 'incomplete rollback lost recovery protection'
     Assert ($script:fixture.Starts -eq 0 -and -not $script:fixture.Task.Settings.Enabled) 'mixed payload was restarted'
     $blocked=$false; try { Start-OwnedWatcher $script:fixture.Manifest } catch { $blocked=$_.Exception.Message.Contains('升级恢复尚未完成') }; Assert $blocked 'startup ignored recovery block'
+}
+Add-Type -TypeDefinition @'
+using System;
+using System.IO;
+using System.Threading;
+public sealed class UpgradeTestFileLock : IDisposable {
+    private readonly FileStream stream;
+    private readonly Thread releaser;
+    public UpgradeTestFileLock(string path, int milliseconds) {
+        stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        if (milliseconds > 0) {
+            releaser = new Thread(() => { Thread.Sleep(milliseconds); stream.Dispose(); });
+            releaser.IsBackground = true; releaser.Start();
+        }
+    }
+    public void Dispose() { if (releaser != null) releaser.Join(); stream.Dispose(); }
+}
+'@
+function New-CopyFixture {
+    $base=Join-Path ([IO.Path]::GetTempPath()) ('WiFiUpgradeTransaction-'+[Guid]::NewGuid().ToString('N'))
+    [IO.Directory]::CreateDirectory($base) | Out-Null
+    $script:fixture=@{Base=$base}
+    return $base
+}
+Case 'Long payload backup paths use a short atomic temporary filename' {
+    $base=New-CopyFixture; $source=Join-Path $base 'source.txt'
+    $directory=Join-Path $base ('p'*(190-$base.Length-1)); [IO.Directory]::CreateDirectory($directory) | Out-Null
+    $destination=Join-Path $directory 'WINDOWS-DESKTOP-RUNTIME-LICENSE.txt'
+    Assert (($destination+'.upgrade-tmp.'+('a'*32)).Length -ge 260) 'fixture does not reproduce the former path limit'
+    [IO.File]::WriteAllText($source,'new complete payload'); [IO.File]::WriteAllText($destination,'previous payload')
+    & $copyImplementation $source $destination
+    Assert (([IO.File]::ReadAllText($destination)) -ceq 'new complete payload') 'long-path replacement failed'
+    Assert (@(Get-ChildItem -LiteralPath $directory -Force).Count -eq 1) 'atomic temporary file was not cleaned'
+}
+Case 'Transient Windows sharing lock permits verified atomic replacement after release' {
+    $base=New-CopyFixture; $source=Join-Path $base 'source.txt'; $destination=Join-Path $base 'destination.txt'
+    [IO.File]::WriteAllText($source,'new complete payload'); [IO.File]::WriteAllText($destination,'previous payload')
+    $held=[UpgradeTestFileLock]::new($destination,600); $clock=[Diagnostics.Stopwatch]::StartNew()
+    try { & $copyImplementation $source $destination } finally { $held.Dispose() }
+    Assert (([IO.File]::ReadAllText($destination)) -ceq 'new complete payload') 'released lock did not allow replacement'
+    Assert ($clock.ElapsedMilliseconds -ge 350 -and $clock.ElapsedMilliseconds -lt 8000) 'replacement did not wait within the bounded lock window'
+    Assert (@(Get-ChildItem -LiteralPath $base -Force).Count -eq 2) 'atomic temporary file was not cleaned'
+}
+Case 'Persistent Windows sharing lock fails with paths and preserves the valid destination' {
+    $base=New-CopyFixture; $source=Join-Path $base 'source.txt'; $destination=Join-Path $base 'destination.txt'
+    [IO.File]::WriteAllText($source,'new complete payload'); [IO.File]::WriteAllText($destination,'previous payload')
+    $before=Hash $destination; $held=[UpgradeTestFileLock]::new($destination,0); $clock=[Diagnostics.Stopwatch]::StartNew(); $errorText=''
+    try { & $copyImplementation $source $destination } catch { $errorText=$_.Exception.Message } finally { $held.Dispose() }
+    Assert ($errorText.Contains($source) -and $errorText.Contains($destination) -and $errorText.Contains('HResult=0x80070020')) 'persistent lock diagnostics are missing'
+    Assert ($clock.ElapsedMilliseconds -lt 8000) 'persistent lock did not fail within the retry limit'
+    Assert ((Hash $destination) -ceq $before) 'failed replacement altered the valid destination'
+    Assert (@(Get-ChildItem -LiteralPath $base -Force).Count -eq 2) 'failed replacement leaked a temporary file'
 }
 $failed=@($results | Where-Object {-not $_.Passed}).Count
 $report=[ordered]@{Total=$results.Count;Passed=($results.Count-$failed);Failed=$failed;ProxyWritten=$false;TaskWritten=$false;Environment='Isolated fixture, mocked proxy/task/identity operations';Results=$results.ToArray()}
