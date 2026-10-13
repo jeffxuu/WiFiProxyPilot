@@ -1,3 +1,5 @@
+> **Documentation version: v3.2.0-beta.1.** This translated guide describes the older release. Current UI and installer documentation: [English](README.md), [简体中文](README.zh-CN.md), [v3.3 Setup EXE](https://github.com/jeffxuu/WiFiProxyPilot/releases/download/v3.3.0-beta.1/WiFiProxyPilot-Setup-x64.exe). The application UI supports en-US and zh-CN; README translation does not imply another UI language.
+
 <div align="center">
   <h1>WiFi Proxy Pilot</h1>
   <h3>Changement intelligent de proxy selon le Wi-Fi sous Windows</h3>

@@ -1,9 +1,10 @@
 ﻿#requires -Version 5.1
 [CmdletBinding()]
-param([string]$Dotnet='dotnet',[switch]$SkipTests)
+param([string]$Dotnet='dotnet',[switch]$SkipTests,[string]$InnoCompiler='')
 $ErrorActionPreference='Stop'
 $repo=Split-Path $PSScriptRoot -Parent
 . (Join-Path $repo 'lib/Lifecycle.ps1')
+& (Join-Path $repo 'tools/Generate-Icon.ps1')
 Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $generated=Join-Path $PSScriptRoot 'generated'; [IO.Directory]::CreateDirectory($generated) | Out-Null
@@ -30,24 +31,62 @@ if (-not $SkipTests) {
 $out=Join-Path $repo 'publish/self-contained/win-x64'
 & $Dotnet publish (Join-Path $repo 'src/WiFiProxySwitcher/WiFiProxySwitcher.csproj') --configuration Release --runtime win-x64 --self-contained true --output $out
 if ($LASTEXITCODE) { throw 'EXE publish failed' }
-$exe=Join-Path $out 'WiFiProxySwitcher.exe'; if (-not (Test-Path -LiteralPath $exe)) { throw 'Missing published EXE' }
+$exe=Join-Path $out 'WiFiProxySwitcher.exe'; if (-not (Test-Path -LiteralPath $exe)) { throw 'Missing published application EXE' }
 $dist=Join-Path $PSScriptRoot 'dist'; [IO.Directory]::CreateDirectory($dist) | Out-Null
-Copy-Item -LiteralPath $exe -Destination (Join-Path $dist 'WiFiProxySwitcher.exe') -Force
-$archive=Join-Path $dist 'WiFiProxySwitcher.zip'; if (Test-Path -LiteralPath $archive) { Remove-Item -LiteralPath $archive -Force }
+foreach ($oldName in @('WiFiProxySwitcher.exe','WiFiProxySwitcher.zip')) {
+    $oldOutput=[IO.Path]::GetFullPath((Join-Path $dist $oldName))
+    if (-not $oldOutput.StartsWith(([IO.Path]::GetFullPath($dist).TrimEnd('\')+'\'),[StringComparison]::OrdinalIgnoreCase)) { throw 'Release output cleanup escaped dist' }
+    if (Test-Path -LiteralPath $oldOutput -PathType Leaf) {
+        $oldArchive=Join-Path $generated 'legacy-build-output'; [IO.Directory]::CreateDirectory($oldArchive) | Out-Null
+        $oldDestination=[IO.Path]::GetFullPath((Join-Path $oldArchive ((Get-FileHash -LiteralPath $oldOutput).Hash.Substring(0,12)+'-'+$oldName)))
+        if (-not $oldDestination.StartsWith(([IO.Path]::GetFullPath($generated).TrimEnd('\')+'\'),[StringComparison]::OrdinalIgnoreCase)) { throw 'Legacy output archive escaped generated' }
+        Move-Item -LiteralPath $oldOutput -Destination $oldDestination -Force
+    }
+}
+# A regular publish is installed to avoid single-file runtime unpacking on every cache-cold start.
+$stage=Join-Path $generated 'installer-stage'; [IO.Directory]::CreateDirectory($stage) | Out-Null
+& $Dotnet publish (Join-Path $repo 'src/WiFiProxySwitcher/WiFiProxySwitcher.csproj') --configuration Release --runtime win-x64 --self-contained true --output $stage '-p:PublishSingleFile=false'
+if ($LASTEXITCODE) { throw 'Installed application publish failed' }
+Copy-Item -LiteralPath (Join-Path $stage 'WiFiProxySwitcher.exe') -Destination (Join-Path $stage 'WiFiProxyPilot.exe') -Force
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'InstallerLifecycle.ps1') -Destination $stage -Force
+$engine=Join-Path $stage 'engine'; [IO.Directory]::CreateDirectory($engine) | Out-Null
+foreach ($name in Get-DistributionFiles) {
+    $target=Join-Path $engine $name; [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($target)) | Out-Null
+    Copy-Item -LiteralPath (Join-Path $repo $name) -Destination $target -Force
+}
+$installFiles=@(Get-ChildItem -LiteralPath $stage -File -Recurse | ForEach-Object {
+    $relative=$_.FullName.Substring($stage.Length+1).Replace('\','/')
+    # Match the actual [Files] package rules exactly; exclude unshipped PDB/runtime languages.
+    if ($relative -in @('WiFiProxyPilot.exe','InstallerLifecycle.ps1') -or ($relative -notmatch '/' -and $_.Extension -in @('.dll','.json') -and $_.Name -ne 'installer-files.json') -or $relative -match '^(engine|runtimes|en-US|zh-CN)/') {
+        [pscustomobject]@{Path=$relative;Hash=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash}
+    }
+})
+[IO.File]::WriteAllText((Join-Path $stage 'installer-files.json'),([pscustomobject]@{Version='3.3.0-beta.1';Files=$installFiles} | ConvertTo-Json -Depth 5),[Text.UTF8Encoding]::new($false))
+if (-not $InnoCompiler) { $InnoCompiler=& (Join-Path $PSScriptRoot 'Get-InnoCompiler.ps1') }
+& $InnoCompiler ('/DSourceDir='+$stage) ('/DOutputPath='+$dist) (Join-Path $PSScriptRoot 'WiFiProxyPilot.iss')
+if ($LASTEXITCODE -or -not (Test-Path -LiteralPath (Join-Path $dist 'WiFiProxyPilot-Setup-x64.exe'))) { throw 'Setup EXE compilation failed' }
+$archive=Join-Path $dist 'WiFiProxyPilot-Portable-x64.zip'; if (Test-Path -LiteralPath $archive) { Remove-Item -LiteralPath $archive -Force }
 $s=[IO.File]::Open($archive,[IO.FileMode]::CreateNew); $z=[IO.Compression.ZipArchive]::new($s,[IO.Compression.ZipArchiveMode]::Create)
 try {
     $documentation=@('LICENSE','CONTRIBUTING.md','SECURITY.md')
     $documentation+=@(Get-ChildItem -LiteralPath $repo -Filter 'README*.md' | ForEach-Object Name)
     $documentation+=@(Get-DistributionFiles | Where-Object { $_ -like 'docs/*' })
     $documentation+=@('docs/GITHUB_DELIVERY.md','docs/evidence/v32-preview-performance.json')
+    foreach($v33Doc in @('docs/INSTALLATION_V3_3.md','docs/TROUBLESHOOTING_V3_3.md','docs/TEST_RESULTS_V3_3.md','docs/PERFORMANCE_V3_3.md')) {
+        if(Test-Path -LiteralPath (Join-Path $repo $v33Doc) -PathType Leaf) { $documentation+=$v33Doc }
+    }
     $documentation+=@(Get-ChildItem -LiteralPath (Join-Path $repo 'docs/evidence') -Filter 'github-delivery-*.json' | ForEach-Object { 'docs/evidence/'+$_.Name })
     $documentation+=@(Get-ChildItem -LiteralPath (Join-Path $repo 'docs/images') -File | ForEach-Object { 'docs/images/'+$_.Name })
-    $pairs=@([pscustomobject]@{Path=$exe;Name='WiFiProxySwitcher.exe'})
+    $pairs=@([pscustomobject]@{Path=$exe;Name='WiFiProxyPilot.exe'})
     foreach($name in @($documentation | Sort-Object -Unique)) { $pairs+=[pscustomobject]@{Path=(Join-Path $repo $name);Name=$name} }
     foreach ($pair in $pairs) {
         [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($z,$pair.Path,$pair.Name,[IO.Compression.CompressionLevel]::Optimal) | Out-Null
     }
 } finally { $z.Dispose(); $s.Dispose() }
-$lines=@(); foreach ($name in @('WiFiProxySwitcher.exe','WiFiProxySwitcher.zip')) { $lines += ((Get-FileHash -LiteralPath (Join-Path $dist $name) -Algorithm SHA256).Hash.ToLowerInvariant()+'  '+$name) }
+$lines=@(); foreach ($name in @('WiFiProxyPilot-Setup-x64.exe','WiFiProxyPilot-Portable-x64.zip')) { $lines += ((Get-FileHash -LiteralPath (Join-Path $dist $name) -Algorithm SHA256).Hash.ToLowerInvariant()+'  '+$name) }
 [IO.File]::WriteAllText((Join-Path $dist 'SHA256.txt'),(($lines -join "`n")+"`n"),[Text.UTF8Encoding]::new($false))
+$sourceCommit=(& git -C $repo rev-parse HEAD | Out-String).Trim()
+$worktreeDirty=(-not [string]::IsNullOrWhiteSpace((& git -C $repo status --porcelain | Out-String)))
+$build=[ordered]@{Version='3.3.0-beta.1';SourceCommit=$sourceCommit;WorktreeDirty=$worktreeDirty;TimeUtc=[DateTimeOffset]::UtcNow.ToString('o');Compiler='Inno Setup 7.1.0';ProgramName='WiFiProxyPilot.exe';InstallOwner='Inno';EngineOwner='WiFiProxySwitcher-v1';InstalledRuntime='unbundled self-contained';PortableRuntime='single-file self-contained';Checksums=$lines}
+[IO.File]::WriteAllText((Join-Path $generated 'build-record.json'),($build | ConvertTo-Json -Depth 4),[Text.UTF8Encoding]::new($false))
 Write-Output ('发布产物: '+$dist)

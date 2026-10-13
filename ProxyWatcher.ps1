@@ -34,7 +34,7 @@ try {
     $reload=New-ConfigurationReloadState $configPath; $c=$reload.Config
     Write-JsonAtomic (Join-Path $stateDir 'config-last-good.json') $c
     $runId=[Guid]::NewGuid().ToString('N')
-    Write-JsonAtomic (Join-Path $stateDir 'status.json') @{Time=[DateTimeOffset]::Now.ToString('o');PID=$PID;RunId=$runId;Outcome='Starting';EngineVersion='3.2.0-beta.1';SchemaVersion=$c.SchemaVersion;ManagementIntent=$c.ManagementIntent;SetupComplete=$c.SetupComplete;Stable=$false}
+    Write-JsonAtomic (Join-Path $stateDir 'status.json') @{Time=[DateTimeOffset]::Now.ToString('o');PID=$PID;RunId=$runId;Outcome='Starting';EngineVersion='3.3.0-beta.1';SchemaVersion=$c.SchemaVersion;ManagementIntent=$c.ManagementIntent;SetupComplete=$c.SetupComplete;Stable=$false}
     Write-SwitchLog $PSScriptRoot $c 'INFO' '监控已启动，当前交互用户身份' @{Mode=$c.Mode;PID=$PID;RunId=$runId}
     if ($reload.Fallback) { Write-SwitchLog $PSScriptRoot $c 'ERROR' '当前配置无效，使用有效备份；请修复配置' $null }
     $clock=[Diagnostics.Stopwatch]::StartNew(); $state=New-MonitorState
@@ -72,12 +72,14 @@ try {
         Heartbeat={
             param($data)
             if ($data.Stable -and $data.Target -notin @('Keep','Retry','SetupRequired')) { $script:appliedRevision=$reload.Revision; $script:completedCheckRequestId=$checkRequestId }
-            $networkKind='Unknown'; $actualServer=''; $warning=''; $ruleReason=''
+            $networkKind='Unknown'; $actualServer=''; $warning=''; $ruleReason=''; $reasonCode='Unknown'; $ruleCode='Unknown'
             if ($data.Contains('NetworkKind')) { $networkKind=$data.NetworkKind }
             if ($data.Contains('ActualServer')) { $actualServer=$data.ActualServer }
             if ($data.Contains('Warning')) { $warning=$data.Warning }
             if ($data.Contains('RuleReason')) { $ruleReason=$data.RuleReason }
-            Write-JsonAtomic (Join-Path $stateDir 'status.json') @{Time=[DateTimeOffset]::Now.ToString('o');PID=$PID;RunId=$runId;EngineVersion='3.2.0-beta.1';SchemaVersion=$c.SchemaVersion;ManagementIntent=$c.ManagementIntent;SetupComplete=$c.SetupComplete;Outcome=$data.Target;NetworkKind=$networkKind;SSID=$data.SSID;InterfaceGuid=$data.InterfaceGuid;Gateway=$data.Gateway;ActualEnabled=$data.ActualEnabled;ActualServer=$actualServer;Stable=$data.Stable;Reason=$data.Reason;RuleReason=$ruleReason;Warning=$warning;ConfigRevision=$reload.Revision;AppliedRevision=$script:appliedRevision;CheckRequestId=$script:completedCheckRequestId;Health=$state.Health.Health;Diagnostics=$c.Diagnostics;Mode=$c.Mode;PollSeconds=$c.PollSeconds;DiagnosticIntervalSeconds=$c.DiagnosticIntervalSeconds;HealthCheckedAt=$state.HealthChecked;ClockSeconds=$clock.Elapsed.TotalSeconds}
+            if ($data.Contains('ReasonCode')) { $reasonCode=$data.ReasonCode }
+            if ($data.Contains('RuleCode')) { $ruleCode=$data.RuleCode }
+            Write-JsonAtomic (Join-Path $stateDir 'status.json') @{Time=[DateTimeOffset]::Now.ToString('o');PID=$PID;RunId=$runId;EngineVersion='3.3.0-beta.1';SchemaVersion=$c.SchemaVersion;ManagementIntent=$c.ManagementIntent;SetupComplete=$c.SetupComplete;Outcome=$data.Target;NetworkKind=$networkKind;SSID=$data.SSID;InterfaceGuid=$data.InterfaceGuid;Gateway=$data.Gateway;ActualEnabled=$data.ActualEnabled;ActualServer=$actualServer;Stable=$data.Stable;Reason=$data.Reason;RuleReason=$ruleReason;ReasonCode=$reasonCode;RuleCode=$ruleCode;Warning=$warning;ConfigRevision=$reload.Revision;AppliedRevision=$script:appliedRevision;RequestedCheckRequestId=$checkRequestId;CheckRequestId=$script:completedCheckRequestId;Health=$state.Health.Health;Diagnostics=$c.Diagnostics;Mode=$c.Mode;PollSeconds=$c.PollSeconds;DiagnosticIntervalSeconds=$c.DiagnosticIntervalSeconds;HealthCheckedAt=$state.HealthChecked;ClockSeconds=$clock.Elapsed.TotalSeconds}
         }
     }
     try { Assert-ProxyPolicy } catch { & $services.Log 'WARN' '检测到代理管理策略，受限制的写入将拒绝执行' @{Error=$_.Exception.Message} }
@@ -105,7 +107,7 @@ try {
         $notified=Wait-MonitorSignal $wait $script:WatcherNative $services.IsStopping { (Test-Path -LiteralPath $checkFile) -or (Get-ConfigurationStamp $configPath) -cne $configStamp }
         if ($notified) { Wait-MonitorSignal ([int]$c.DebounceMilliseconds) $null $services.IsStopping | Out-Null }
     }
-    Write-JsonAtomic (Join-Path $stateDir 'status.json') @{Time=[DateTimeOffset]::Now.ToString('o');PID=$PID;RunId=$runId;Outcome='Stopped';EngineVersion='3.2.0-beta.1';SchemaVersion=$c.SchemaVersion;ManagementIntent=$c.ManagementIntent;SetupComplete=$c.SetupComplete;Stable=$false}
+    Write-JsonAtomic (Join-Path $stateDir 'status.json') @{Time=[DateTimeOffset]::Now.ToString('o');PID=$PID;RunId=$runId;Outcome='Stopped';EngineVersion='3.3.0-beta.1';SchemaVersion=$c.SchemaVersion;ManagementIntent=$c.ManagementIntent;SetupComplete=$c.SetupComplete;Stable=$false}
     Write-SwitchLog $PSScriptRoot $c 'INFO' '监控按停止请求退出' $null
 } catch {
     $exitCode=1; $failure=$_.Exception.Message

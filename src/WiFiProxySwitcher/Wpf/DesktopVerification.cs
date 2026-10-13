@@ -36,7 +36,7 @@ internal static class DesktopVerification
         string revision = ConfigurationStore.Read(root).Revision;
         File.WriteAllText(Path.Combine(root, "state", "status.json"), JsonSerializer.Serialize(new
         {
-            Time = time ?? DateTimeOffset.Now, EngineVersion = "3.2.0-beta.1", SchemaVersion = 2,
+            Time = time ?? DateTimeOffset.Now, EngineVersion = "3.3.0-beta.1", SchemaVersion = 2,
             ManagementIntent = "Monitoring", SetupComplete = true, SSID = "Mobile Hotspot", NetworkKind = "Connected",
             Gateway = "192.0.2.1", InterfaceGuid = "11111111-1111-1111-1111-111111111111", Outcome = "Enable", RuleAction = "Enable",
             Stable = true, ActualEnabled = true, ActualServer = "192.0.2.1:7890", ConfigRevision = revision, AppliedRevision = revision,
@@ -98,7 +98,7 @@ internal static class DesktopVerification
                 {
                     var vm = host.Window.ViewModel;
                     Assert(vm.AutomaticEnabled && vm.DashboardNetworkTitle == "Mobile Hotspot" && vm.Status?.ProxyEnabled == true && vm.Status.Diagnostic?.State == ProxyDiagnosticState.TcpReachable);
-                    Assert(vm.DashboardDiagnosticStatus.Contains("TCP") && !vm.DashboardDiagnosticStatus.Contains("HTTP 代理已验证")); return Task.CompletedTask;
+                    Assert(vm.DashboardDiagnosticStatus == Localization.Text("DiagnosticTcp") && vm.DashboardDiagnosticStatus != Localization.Text("DiagnosticHttp")); return Task.CompletedTask;
                 });
                 await Check("Window maximize, restore and keyboard focus use native WPF semantics", async () =>
                 {
@@ -121,7 +121,7 @@ internal static class DesktopVerification
                 await Check("Automatic switch cannot manufacture success in an isolated preview", async () =>
                 {
                     await host.Window.ViewModel.Perform("automatic");
-                    Assert(host.Window.ViewModel.AutomaticEnabled && host.Window.ViewModel.Status?.Intent == ManagementIntent.Monitoring && host.Window.ViewModel.Message.Contains("隔离"));
+                    Assert(host.Window.ViewModel.AutomaticEnabled && host.Window.ViewModel.Status?.Intent == ManagementIntent.Monitoring && !host.Window.ViewModel.AutomaticControlEnabled && host.Window.ViewModel.IsDemo && host.Window.ViewModel.Message == Localization.Format("OperationFailed", Localization.Error(new UiOperationException("DemoDisabled"))));
                 });
                 await Check("Actual tray menu capture uses the isolated application", async () =>
                 {
@@ -235,7 +235,7 @@ internal static class DesktopVerification
                     vm.Rules.Selected = "Lab Hotspot"; vm.Rules.Input = "Home Hotspot"; await vm.Perform("edit");
                     await vm.Perform("save-rules"); var saved = ConfigurationStore.Read(fixture);
                     Check(saved.Whitelist.Contains("Home Hotspot") && !saved.Whitelist.Contains("Lab Hotspot") && !vm.Rules.Dirty);
-                    Check(vm.Message.Contains("已保存") && !vm.Message.Contains("规则已应用"));
+                    Check(vm.Message == Localization.Text("SavedPending") && vm.Message != Localization.Text("RulesApplied"));
                     await Render("Rules", "wpf-rules-light.png");
                 });
                 await Test("Cancel discards only unsaved changes", async () =>
@@ -252,12 +252,12 @@ internal static class DesktopVerification
                 {
                     WriteHeartbeat(fixture, DateTimeOffset.Now.AddMinutes(-5)); await vm.RefreshAsync();
                     await WaitForStatus(() => vm.Status?.Fresh == false);
-                    Check(vm.Status?.State == ApplicationState.Degraded && !vm.Status.Fresh && !vm.Status.Connected && vm.NetworkLabel.Contains("暂时无法读取"));
+                    Check(vm.Status?.State == ApplicationState.Degraded && !vm.Status.Fresh && !vm.Status.Connected && vm.NetworkLabel == Localization.Text("Unreadable"));
                     WriteHeartbeat(fixture); await WaitForStatus(() => vm.Status?.Fresh == true);
                 });
                 await Test("Logs are loaded on demand and status refresh is measured", async () =>
                 {
-                    host.Open("Logs"); await WaitForStatus(() => vm.Logs.Contains("隔离演示数据"));
+                    host.Open("Logs"); await WaitForStatus(() => vm.Logs.Contains(Localization.Text("WatcherLogHeading")) && vm.Logs.Contains("Mobile Hotspot"));
                     host.Open("Dashboard"); var clock = Stopwatch.StartNew(); var sample = await Task.Run(() => StatusReader.Read()); refreshMilliseconds = clock.Elapsed.TotalMilliseconds; Check(sample.Fresh);
                 });
                 await Test("Dark WPF dashboard renders", async () =>
@@ -278,7 +278,7 @@ internal static class DesktopVerification
             {
                 File.WriteAllText(output, JsonSerializer.Serialize(new
                 {
-                    Version = "3.2.0-beta.1", Total = results.Count, Passed = results.Count - failed, Failed = failed, Results = results, Captures = captures,
+                    Version = "3.3.0-beta.1", Total = results.Count, Passed = results.Count - failed, Failed = failed, Results = results, Captures = captures,
                     StatusRefreshMilliseconds = refreshMilliseconds, Windows = true, UI = "Actual WPF application and render tree", ProxyWritten = false, TaskWritten = false,
                     Network = "Isolated synthetic SSID and documentation IPv4 address", Explorer = "TaskbarCreated message only; Explorer was not restarted", RealNetworkIntegration = "NOT RUN", Fixture = fixture
                 }, new JsonSerializerOptions { WriteIndented = true }));

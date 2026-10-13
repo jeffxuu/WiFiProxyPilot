@@ -2,7 +2,11 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType><TargetFramework>net8.0-windows</TargetFramework><UseWindowsForms>true</UseWindowsForms><UseWPF>true</UseWPF>
     <EnableWindowsTargeting>true</EnableWindowsTargeting><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable>
-    <Version>3.2.0-beta.1</Version><AssemblyName>WiFiProxySwitcher</AssemblyName><ApplicationManifest>app.manifest</ApplicationManifest><ApplicationIcon>assets/app.ico</ApplicationIcon>
+    <Version>3.3.0-beta.1</Version><AssemblyName>WiFiProxySwitcher</AssemblyName><RootNamespace>WiFiProxySwitcher</RootNamespace><ApplicationManifest>app.manifest</ApplicationManifest><ApplicationIcon>assets/app.ico</ApplicationIcon>
+    <Product>WiFi Proxy Pilot</Product><Title>WiFi Proxy Pilot</Title><Company>WiFi Proxy Pilot contributors</Company><Description>Automatic Wi-Fi proxy management for Windows</Description>
+    <!-- The manifest sets DPI awareness before either WPF or NotifyIcon creates a handle.
+         Keep the WinForms generator consistent; its manifest warning does not apply to this mixed host. -->
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode><NoWarn>$(NoWarn);WFAC010</NoWarn>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier><SelfContained>true</SelfContained><PublishSingleFile>true</PublishSingleFile>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract><PublishTrimmed>false</PublishTrimmed>
     <DebugType>none</DebugType><DebugSymbols>false</DebugSymbols><TreatWarningsAsErrors>true</TreatWarningsAsErrors>
@@ -13,6 +17,11 @@
     <EmbeddedResource Include="../../release/generated/payload.zip" LogicalName="payload.zip" />
     <EmbeddedResource Include="../../release/generated/payload.manifest.json" LogicalName="payload.manifest.json" />
     <EmbeddedResource Include="../../config.json" LogicalName="default-config.json" />
+    <EmbeddedResource Include="assets/app.ico" LogicalName="WiFiProxyPilot.Icon.Brand.ico" />
+    <EmbeddedResource Include="assets/monitoring.ico" LogicalName="WiFiProxyPilot.Icon.Monitoring.ico" />
+    <EmbeddedResource Include="assets/direct.ico" LogicalName="WiFiProxyPilot.Icon.Direct.ico" />
+    <EmbeddedResource Include="assets/paused.ico" LogicalName="WiFiProxyPilot.Icon.Paused.ico" />
+    <EmbeddedResource Include="assets/attention.ico" LogicalName="WiFiProxyPilot.Icon.Attention.ico" />
     <Compile Include="../../release/generated/NativeReader.cs" Link="NativeReader.cs" />
   </ItemGroup>
 </Project>

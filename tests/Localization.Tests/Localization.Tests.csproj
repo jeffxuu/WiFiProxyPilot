@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0-windows</TargetFramework><UseWPF>true</UseWPF><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><TreatWarningsAsErrors>true</TreatWarningsAsErrors><RootNamespace>WiFiProxySwitcher</RootNamespace></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/WiFiProxySwitcher.Core/WiFiProxySwitcher.Core.csproj" />
+    <Compile Include="../../src/WiFiProxySwitcher/Wpf/Localization.cs" Link="Localization.cs" />
+    <EmbeddedResource Include="../../src/WiFiProxySwitcher/Resources/Strings.resx" Link="Resources/Strings.resx" />
+    <EmbeddedResource Include="../../src/WiFiProxySwitcher/Resources/Strings.en-US.resx" Link="Resources/Strings.en-US.resx" />
+    <EmbeddedResource Include="../../src/WiFiProxySwitcher/Resources/Strings.zh-CN.resx" Link="Resources/Strings.zh-CN.resx" />
+  </ItemGroup>
+</Project>

@@ -118,7 +118,10 @@ function Invoke-MonitorCycle($State,$Config,$Services,[double]$Now,[switch]$Obse
         if ($outcome -eq 'Direct') { $reason='已选择直连；自动切换保持暂停。若其他程序重新开启代理，本工具不会覆盖其修改' }
         if (-not $Config.SetupComplete) { $outcome='SetupRequired'; $reason='请完成首次设置并确认后开启自动切换' }
     }
-    $data=[ordered]@{SSID=$target.SSID;InterfaceGuid=$target.Guid;Gateway=$target.Gateway;NetworkKind=$snapshot.Kind;Target=$outcome;RuleAction=$target.Action;ActualEnabled=$actual.Enable;ActualServer=$safeServer;ProxyFlags=$actual.Flags;Changed=$changed;Stable=$stable;Reason=$reason;RuleReason=$target.Reason;Warning=$warning}
+    $reasonCode='Unknown'; if ($null -ne $target.PSObject.Properties['ReasonCode']) { $reasonCode=$target.ReasonCode }
+    $ruleCode=$reasonCode
+    if ($ObserveOnly) { $reasonCode=$Config.ManagementIntent; $ruleCode=$Config.ManagementIntent }
+    $data=[ordered]@{SSID=$target.SSID;InterfaceGuid=$target.Guid;Gateway=$target.Gateway;NetworkKind=$snapshot.Kind;Target=$outcome;RuleAction=$target.Action;ActualEnabled=$actual.Enable;ActualServer=$safeServer;ProxyFlags=$actual.Flags;Changed=$changed;Stable=$stable;Reason=$reason;RuleReason=$target.Reason;ReasonCode=$reasonCode;RuleCode=$ruleCode;Warning=$warning}
     & $Services.Heartbeat $data
     $signature=@($data.SSID,$data.InterfaceGuid,$data.Gateway,$data.Target,$data.ActualEnabled,$data.ActualServer,$data.Stable,$data.Reason) | ConvertTo-Json -Compress
     if ($changed -or $signature -cne $State.LastLog -or ($target.Action -eq 'Keep' -and $Now-$State.LastLogTime -ge 300)) {

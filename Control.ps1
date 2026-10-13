@@ -25,7 +25,7 @@ $mutex=$null; $owned=$false; $code=0
 function Assert-ManagementEngineProtocol([string]$Root) {
     $message='需要升级后台组件：无法确认正在运行的引擎支持持久管理意图。请先执行修复/升级安装，真正停止旧监控并启动新版；现有规则与最初代理备份将保留'
     $engine=Join-Path $Root 'ProxyWatcher.ps1'; Assert-PlainPath $engine
-    if (-not [IO.File]::ReadAllText($engine).Contains('$script:EngineProtocol=2')) { throw $message }
+    if (-not [IO.File]::ReadAllText($engine).Contains('$script:EngineProtocol=2')) { Throw-ProductError 'EngineUpgradeRequired' $message }
     $watch=New-UserMutex 'Watcher'; $free=$false
     try { $free=Enter-Mutex $watch; if ($free) { $watch.ReleaseMutex() } } finally { $watch.Dispose() }
     # The disk can be newer than a process already holding the watcher lock. Its live heartbeat
@@ -60,7 +60,7 @@ try {
     $root=Get-InstalledRoot
     if (-not $root -and $InstallDir -and $Action -ne 'Install') { $root=[IO.Path]::GetFullPath($InstallDir).TrimEnd('\') }
     if ($Action -eq 'Install') {
-        if (-not $InstallDir) { if ($root) { $InstallDir=$root } else { $InstallDir=Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'WiFiProxySwitcher' } }
+        if (-not $InstallDir) { if ($root) { $InstallDir=$root } else { $InstallDir=Get-DefaultEngineInstallDirectory } }
         $InstallDir=[IO.Path]::GetFullPath($InstallDir).TrimEnd('\')
         Assert-PlainPath $InstallDir
         if ($root -and -not [string]::Equals($root,$InstallDir,[StringComparison]::OrdinalIgnoreCase)) { throw '已有另一安装目录，请先卸载，再改变目录' }
@@ -78,7 +78,7 @@ try {
             elseif (@(Get-ChildItem -LiteralPath $InstallDir -Force).Count) { throw '目标目录不是空目录，拒绝覆盖用户文件' }
         }
         $manifest=Install-ProductFiles $source $InstallDir $previous $SetupConfigPath
-        if ($DesktopSource) { Install-DesktopFiles $InstallDir $DesktopSource | Out-Null }
+        if ($DesktopSource -and $null -eq (Read-InstallerDesktop)) { Install-DesktopFiles $InstallDir $DesktopSource | Out-Null }
         $k=[Microsoft.Win32.Registry]::CurrentUser.CreateSubKey($script:Pointer)
         try { $k.SetValue('InstallDir',$InstallDir,[Microsoft.Win32.RegistryValueKind]::String) } finally { $k.Dispose() }
         $exe=Join-Path $env:SystemRoot 'System32\wscript.exe'
@@ -135,6 +135,7 @@ try {
                 if ($Quiet) { Write-JsonAtomic (Join-Path $root 'state/control-status.json') $status } else { $status | ConvertTo-Json -Depth 6 }
             }
             'Uninstall' {
+                if ($null -ne (Read-InstallerDesktop)) { throw 'This application is owned by Windows Setup. Use Installed apps to uninstall WiFi Proxy Pilot.' }
                 if ($ForceRestore -and $KeepCurrentProxy) { throw '-ForceRestore 与 -KeepCurrentProxy 不能同时使用' }
                 $desktop=Read-DesktopInstall $root
                 Uninstall-Product $manifest -KeepCurrentProxy:$KeepCurrentProxy -DeleteLogs:$DeleteLogs -ForceRestore:$ForceRestore
