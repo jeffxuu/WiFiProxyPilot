@@ -2,7 +2,7 @@
 
 测试运行于 Windows 11 Enterprise 10.0.26200、Windows PowerShell 5.1.26100.8115、.NET SDK 8.0.425。用户明确选择本轮只做模拟验证、构建和 PR，不授权真实安装/代理/计划任务修改。没有运行真实切网验收。
 
-基线：原 PowerShell 103/103，原 C# 22/22 全部通过。新增 C# 后 37/37 通过。PowerShell 首轮新增后 111/111 全绿；增加托盘登录注册表及升级保留测试后共 113 项，最终结果以 docs/evidence/engine-v31.json 为准。Windows 桌面冒烟最终报告以 docs/evidence/desktop-v31.json 为准。
+基线：原 PowerShell 103/103，原 C# 22/22 全部通过。新增 C# 后 37/37 通过，本机 Windows 桌面冒烟 17/17。GitHub Windows CI 的 08c5e74 提交完成全部 PowerShell 113/113、C# 37/37、隔离桌面及 EXE/ZIP 打包和上传，证据见 docs/evidence/ci-v31.json 和对应 Actions 附件。该次运行仅草稿 Release 步骤因内联中文脚本被 PS 5.1 误读而失败，已改用 pwsh；不将整次 workflow 标为成功。
 
 | 分类 | 验证范围 | 真实性边界 |
 | --- | --- | --- |
@@ -25,3 +25,5 @@
 - 真实机器断电期间磁盘持久化与不同 Windows 安全策略/执行策略/防病毒环境。
 
 发行状态为**待真实 Windows 网络验收候选**。GitHub Actions 继续执行全部原始/新增模拟与桌面检查，并仅准备 draft prerelease。v3.0.0 Release 不更新。
+
+本机高频原子替换压力还发现 Windows 短暂共享/删除冲突；Write-JsonAtomic 增加保留源临时文件时的有界重试，不删除/截断有效目标，持续失败仍抛错。针对压力用例再次验证通过；最终完整重跑记录与 CI 按提交分别保留。临时文件检查改用真实长文件名匹配，避免 Windows 8.3 短名导致误判；没有忽略实际残留临时文件。

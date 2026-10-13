@@ -160,7 +160,16 @@ function Write-JsonAtomic([string]$Path,$Value) {
     $tmp = $Path + '.tmp.' + [Guid]::NewGuid().ToString('N')
     try {
         [IO.File]::WriteAllText($tmp,($Value | ConvertTo-Json -Depth 12),[Text.UTF8Encoding]::new($true))
-        if (Test-Path -LiteralPath $Path) { [IO.File]::Replace($tmp,$Path,[NullString]::Value) } else { [IO.File]::Move($tmp,$Path) }
+        for ($attempt=0;$attempt -lt 6;$attempt++) {
+            try {
+                if (Test-Path -LiteralPath $Path) { [IO.File]::Replace($tmp,$Path,[NullString]::Value) } else { [IO.File]::Move($tmp,$Path) }
+                break
+            } catch {
+                # Retry a transient sharing/removal failure without deleting or truncating the valid destination.
+                if ($attempt -eq 5 -or -not (Test-Path -LiteralPath $tmp)) { throw }
+                Start-Sleep -Milliseconds (25*($attempt+1))
+            }
+        }
     } finally { if (Test-Path -LiteralPath $tmp) { Remove-Item -LiteralPath $tmp -Force } }
 }
 

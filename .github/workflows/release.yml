@@ -28,7 +28,7 @@ jobs:
         shell: powershell
         run: ./release/Build.ps1
       - name: Isolated WinForms, tray, editor and synthetic DPI smoke
-        shell: powershell
+        shell: pwsh
         run: |
           $dir=Join-Path $env:RUNNER_TEMP 'WiFi 中文 smoke path'
           New-Item -ItemType Directory -Force $dir | Out-Null
@@ -51,7 +51,7 @@ jobs:
           retention-days: 30
       - name: Prepare v3.1.0 draft prerelease only
         if: success() && github.ref == 'refs/heads/feature/ui-tray-performance-v3.1'
-        shell: powershell
+        shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
